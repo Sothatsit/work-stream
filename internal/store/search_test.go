@@ -200,3 +200,47 @@ func TestSearchRejectsInvalidBoundsAndNUL(t *testing.T) {
 		t.Fatalf("canceled Search error = %v, want context.Canceled", err)
 	}
 }
+
+func TestSearchByOrigin(t *testing.T) {
+	store := openTestStore(t)
+	add := func(subject string, origin api.Origin) api.Entry {
+		t.Helper()
+		entry, err := store.Add(context.Background(), api.AddEntryRequest{
+			Type: "note", Subject: subject, Origin: origin,
+		})
+		if err != nil {
+			t.Fatalf("adding entry: %v", err)
+		}
+		return entry
+	}
+	bud := add("on bud", api.Origin{
+		User: "paddyl", Host: "BUD110",
+		Dir: "/node/bud110/paddyl/src", ClaudeSession: "abc-123",
+	})
+	hud := add("on hud", api.Origin{
+		User: "paddyl", Host: "hud21",
+		Dir: "/node/hud21/paddyl/envs",
+	})
+
+	// Host match folds ASCII case, like the other text fields.
+	got := runSearch(t, store, Filter{
+		Limit: 50, OriginHost: []FieldCond{{Value: "bud110"}},
+	})
+	assertEntryIDs(t, got.Entries, bud.ID)
+
+	// Directory glob and session match reach only their entry.
+	got = runSearch(t, store, Filter{
+		Limit: 50, OriginDir: []FieldCond{{Value: "*/envs"}},
+	})
+	assertEntryIDs(t, got.Entries, hud.ID)
+	got = runSearch(t, store, Filter{
+		Limit: 50, OriginClaudeSession: []FieldCond{{Value: "abc-*"}},
+	})
+	assertEntryIDs(t, got.Entries, bud.ID)
+
+	// Negation excludes the matching origin.
+	got = runSearch(t, store, Filter{
+		Limit: 50, OriginHost: []FieldCond{{Negate: true, Value: "bud110"}},
+	})
+	assertEntryIDs(t, got.Entries, hud.ID)
+}

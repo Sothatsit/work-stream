@@ -73,8 +73,8 @@ func TestGeneratedColumnsFollowWrites(t *testing.T) {
 		t.Helper()
 		var typ, subject, body, value string
 		err := store.db.QueryRowContext(ctx, `
-			SELECT e.type_folded, e.subject_folded, e.body_folded,
-				metadata.value_folded
+			SELECT e.type_lower, e.subject_lower, e.body_lower,
+				metadata.value_lower
 			FROM entries AS e
 			JOIN entry_metadata AS metadata ON metadata.entry_id = e.id
 			WHERE e.id = ?`, entry.ID,

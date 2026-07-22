@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"strings"
 
 	"github.com/Sothatsit/work-stream/internal/api"
@@ -38,12 +39,18 @@ Usage:
 Entries have a required type (e.g. note, todo, decision, idea), a
 short subject, an optional longer body, and any number of metadata
 key=value pairs (project, jira, pr, repo, ...). Keep the subject to a
-headline and put detail in the body; lists show the subject with a [+]
-marker when a body exists, and 'ws entry' shows the body in full.
-IDs look like e123. Times are stored in UTC and shown in local time.
+headline and put detail in the body. Lists show only the subject, with
+a [+] marker when a body or metadata exists; 'ws entry' shows those in
+full. IDs look like e123. Times are stored in UTC and shown in local
+time.
+
+Each entry records its origin: the OS user, host, and directory of the
+ws client, plus the Claude Code session id when set. 'ws add' captures
+this automatically and 'ws entry' shows it. Search it with the origin-*
+flags below.
 
 Metadata keys are lowercase slugs: letters, digits, and single dashes,
-starting with a letter (e.g. jira, github-pr). For several of a kind,
+starting with a letter (e.g. jira, build-id). For several of a kind,
 number them: jira-1, jira-2.
 
 Field limits (characters): type 64, subject 128, body 2048, key 64,
@@ -51,12 +58,14 @@ value 256. An entry can have 16 metadata pairs.
 Type, subject, and metadata values cannot contain control characters.
 
 Shorthands (on add and search) set or match a specific key:
-  --project, --jira, --github, --confluence
+  --project, --jira, --confluence
 E.g. ws search --jira 'QUACK-*' is
 ws search --meta 'jira=QUACK-*'.
 
 Search flags:
-  --subject, --body, --content, --type, --key, and --meta take
+  --subject, --body, --content, --type, --key, --meta, and the origin
+  filters --origin-user, --origin-host, --origin-dir, and
+  --origin-claude-session take
   ASCII-case-insensitive GLOB patterns. Patterns match the full value;
   use '*', '?', and bracket classes for wildcards. --content matches
   the subject OR body. Prefix a flag with 'no-' to exclude. --meta
@@ -229,11 +238,16 @@ func cmdAdd(c *client, args []string) {
 			set(key, value)
 		}
 	}
+	origin, err := captureOrigin()
+	if err != nil {
+		fail(err)
+	}
 	req := api.AddEntryRequest{
 		Type:     p.pos[0],
 		Subject:  p.pos[1],
 		Body:     p.strs["--body"],
 		Metadata: metadata,
+		Origin:   origin,
 	}
 	if err := req.Validate(); err != nil {
 		fail(err)
@@ -251,6 +265,35 @@ func shorthandFlags() []string {
 		flags[i] = "--" + key
 	}
 	return flags
+}
+
+const claudeSessionEnvironment = "CLAUDE_CODE_SESSION_ID"
+
+// captureOrigin records where this entry is being created. Host and
+// directory are required, so a failure to read either is fatal. User
+// falls back to $USER, and the Claude session is empty outside Claude
+// Code.
+func captureOrigin() (api.Origin, error) {
+	host, err := os.Hostname()
+	if err != nil {
+		return api.Origin{}, fmt.Errorf("reading hostname: %w", err)
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		return api.Origin{}, fmt.Errorf("reading working directory: %w", err)
+	}
+	name := ""
+	if current, err := user.Current(); err == nil {
+		name = current.Username
+	} else {
+		name = os.Getenv("USER")
+	}
+	return api.Origin{
+		User:          name,
+		Host:          host,
+		Dir:           dir,
+		ClaudeSession: os.Getenv(claudeSessionEnvironment),
+	}, nil
 }
 
 func cmdSearch(c *client, command string, args []string) {

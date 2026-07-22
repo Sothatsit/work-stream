@@ -18,6 +18,11 @@ const (
 	MaxKeyLen     = 64
 	MaxValueLen   = 256
 	MaxMetadata   = 16
+
+	MaxOriginUserLen          = 256
+	MaxOriginHostLen          = 256
+	MaxOriginDirLen           = 4096
+	MaxOriginClaudeSessionLen = 128
 )
 
 // keyPattern restricts metadata keys to lowercase slugs: start with a
@@ -63,7 +68,7 @@ func ValidateKey(key string) error {
 	if !keyPattern.MatchString(key) {
 		return fmt.Errorf(
 			"invalid metadata key %q: use lowercase letters, digits, and "+
-				"single dashes, starting with a letter (e.g. jira, github-pr)",
+				"single dashes, starting with a letter (e.g. jira, build-id)",
 			key)
 	}
 	return nil
@@ -87,6 +92,38 @@ func validateMetadata(md map[string]string) error {
 	}
 	for key, value := range md {
 		if err := ValidateMeta(key, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateOrigin checks the provenance an entry carries. Host and dir
+// are required; the client always fills them. User and the Claude
+// session are optional. No field may contain control characters.
+func (o Origin) Validate() error {
+	if o.Host == "" {
+		return fmt.Errorf("origin host is required")
+	}
+	if o.Dir == "" {
+		return fmt.Errorf("origin dir is required")
+	}
+	fields := []struct {
+		name  string
+		value string
+		max   int
+	}{
+		{"origin user", o.User, MaxOriginUserLen},
+		{"origin host", o.Host, MaxOriginHostLen},
+		{"origin dir", o.Dir, MaxOriginDirLen},
+		{"origin claude session", o.ClaudeSession,
+			MaxOriginClaudeSessionLen},
+	}
+	for _, field := range fields {
+		if err := checkOneLine(field.name, field.value); err != nil {
+			return err
+		}
+		if err := checkLen(field.name, field.value, field.max); err != nil {
 			return err
 		}
 	}
@@ -118,7 +155,10 @@ func (r AddEntryRequest) Validate() error {
 	if err := checkBody(r.Body); err != nil {
 		return err
 	}
-	return validateMetadata(r.Metadata)
+	if err := validateMetadata(r.Metadata); err != nil {
+		return err
+	}
+	return r.Origin.Validate()
 }
 
 func (r EditEntryRequest) Validate() error {

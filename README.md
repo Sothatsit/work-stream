@@ -4,6 +4,12 @@
 short subject, an optional body, and optional key-value metadata.
 `ws-server` keeps them in SQLite; every client talks to one server.
 
+Every entry records its origin: the OS user, host, and working
+directory of the client, plus the Claude Code session id when set.
+`ws add` captures this automatically. Listings show only the subject
+with a `[+]` marker when a body or metadata exists; `ws entry` shows
+the body, metadata, and origin in full.
+
 Types can have 64 characters, subjects 128, bodies 2048, metadata
 keys 64, and metadata values 256. Each entry can have 16 metadata
 pairs.
@@ -50,6 +56,7 @@ ws add todo "Count the new ducklings" --project duck-pond --jira QUACK-1
 ws recent
 ws search ducklings --type todo --no-subject '*(Solved*'
 ws search --jira 'QUACK-*'
+ws search --origin-host bud110 --origin-claude-session '050f8e2e*'
 ws edit e1 "Count the new ducklings (Solved 22/07/2026)"
 ws add-meta e1 pr https://github.com/example/pond/pull/123
 ws entry e1
@@ -61,7 +68,8 @@ flags take full-string, ASCII-case-insensitive SQLite GLOB patterns:
 
 ```
 --subject  --body  --content  --type  --key  --meta
---project  --jira  --github   --confluence
+--origin-user  --origin-host  --origin-dir  --origin-claude-session
+--project  --jira  --confluence
 ```
 
 Prefix any flag with `--no-` to exclude it. `--content` matches the

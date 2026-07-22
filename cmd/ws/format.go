@@ -41,42 +41,51 @@ func listTime(e api.Entry, orderByModified bool) time.Time {
 
 // printEntryLine prints one log-style line per entry: id, type, and the
 // listed time, then the subject. A trailing [+] marks entries with a
-// body, which 'ws entry' shows in full. Newlines in the subject are
-// escaped to keep the line a line. An indented follow-up line holds the
-// metadata, space-separated with keys sorted. The date lives in a
+// body or metadata, both of which 'ws entry' shows in full. Newlines in
+// the subject are escaped to keep the line a line. The date lives in a
 // heading above each day's entries (see printSearchResult).
 func printEntryLine(e api.Entry, orderByModified bool) {
 	subject := strings.ReplaceAll(e.Subject, "\n", "\\n")
 	marker := ""
-	if e.Body != "" {
+	if e.Body != "" || len(e.Metadata) > 0 {
 		marker = " [+]"
 	}
 	fmt.Printf("[e%d] (%s) %s: %s%s\n", e.ID, e.Type,
 		localClock(listTime(e, orderByModified)), subject, marker)
+}
 
-	var meta []string
-	for _, key := range sortedMetaKeys(e.Metadata) {
-		meta = append(meta, key+"="+e.Metadata[key])
+func printOrigin(o api.Origin) {
+	if o == (api.Origin{}) {
+		return
 	}
-	if len(meta) > 0 {
-		fmt.Println("  " + strings.Join(meta, "  "))
+	location := o.Host
+	if o.User != "" {
+		location = o.User + "@" + o.Host
+	}
+	if o.Dir != "" {
+		location += ":" + o.Dir
+	}
+	if location != "" {
+		fmt.Println("From: " + location)
+	}
+	if o.ClaudeSession != "" {
+		fmt.Println("  claude session: " + o.ClaudeSession)
 	}
 }
 
 func printEntryDetail(e api.Entry) {
-	fmt.Printf("[e%d] (%s)\n", e.ID, e.Type)
+	fmt.Printf("[e%d] (%s) %s\n\n", e.ID, e.Type, e.Subject)
 	fmt.Println("Created: " + localTimeDetail(e.Created))
 	fmt.Println("Modified: " + localTimeDetail(e.Modified))
+	printOrigin(e.Origin)
 	if len(e.Metadata) > 0 {
 		fmt.Println("Metadata:")
 		for _, key := range sortedMetaKeys(e.Metadata) {
 			fmt.Printf("  %s: %s\n", key, e.Metadata[key])
 		}
 	}
-	fmt.Println("Subject:")
-	fmt.Println(e.Subject)
 	if e.Body != "" {
-		fmt.Println("Body:")
+		fmt.Println()
 		fmt.Println(e.Body)
 	}
 }

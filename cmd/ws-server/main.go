@@ -317,6 +317,15 @@ var repeatedQueryParameters = map[string]bool{
 	"no-content": true,
 	"meta":       true,
 	"no-meta":    true,
+
+	"origin-user":              true,
+	"no-origin-user":           true,
+	"origin-host":              true,
+	"no-origin-host":           true,
+	"origin-dir":               true,
+	"no-origin-dir":            true,
+	"origin-claude-session":    true,
+	"no-origin-claude-session": true,
 }
 
 var singleQueryParameters = map[string]bool{
@@ -447,14 +456,18 @@ func (h *handler) search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filter := store.Filter{
-		Subject: fieldConditions(query, "subject"),
-		Body:    fieldConditions(query, "body"),
-		Type:    fieldConditions(query, "type"),
-		Key:     fieldConditions(query, "key"),
-		Content: fieldConditions(query, "content"),
-		Meta:    metadata,
-		Limit:   limit,
-		Offset:  offset,
+		Subject:             fieldConditions(query, "subject"),
+		Body:                fieldConditions(query, "body"),
+		Type:                fieldConditions(query, "type"),
+		Key:                 fieldConditions(query, "key"),
+		Content:             fieldConditions(query, "content"),
+		Meta:                metadata,
+		OriginUser:          fieldConditions(query, "origin-user"),
+		OriginHost:          fieldConditions(query, "origin-host"),
+		OriginDir:           fieldConditions(query, "origin-dir"),
+		OriginClaudeSession: fieldConditions(query, "origin-claude-session"),
+		Limit:               limit,
+		Offset:              offset,
 	}
 	if values := query["order-by"]; len(values) != 0 {
 		switch values[0] {

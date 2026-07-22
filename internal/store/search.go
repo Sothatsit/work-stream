@@ -31,12 +31,16 @@ type MetaCond struct {
 }
 
 type Filter struct {
-	Subject []FieldCond
-	Body    []FieldCond
-	Type    []FieldCond
-	Key     []FieldCond
-	Content []FieldCond
-	Meta    []MetaCond
+	Subject             []FieldCond
+	Body                []FieldCond
+	Type                []FieldCond
+	Key                 []FieldCond
+	Content             []FieldCond
+	Meta                []MetaCond
+	OriginUser          []FieldCond
+	OriginHost          []FieldCond
+	OriginDir           []FieldCond
+	OriginClaudeSession []FieldCond
 
 	OrderByModified bool
 	Limit           int
@@ -50,7 +54,9 @@ type whereBuilder struct {
 
 func conditionCount(filter Filter) int {
 	return len(filter.Subject) + len(filter.Body) + len(filter.Type) +
-		len(filter.Key) + len(filter.Content) + len(filter.Meta)
+		len(filter.Key) + len(filter.Content) + len(filter.Meta) +
+		len(filter.OriginUser) + len(filter.OriginHost) +
+		len(filter.OriginDir) + len(filter.OriginClaudeSession)
 }
 
 func (builder *whereBuilder) addField(
@@ -59,7 +65,7 @@ func (builder *whereBuilder) addField(
 	conditions []FieldCond,
 ) error {
 	for _, condition := range conditions {
-		pattern, err := foldedPattern(name, condition.Value)
+		pattern, err := loweredPattern(name, condition.Value)
 		if err != nil {
 			return err
 		}
@@ -75,7 +81,7 @@ func (builder *whereBuilder) addField(
 
 func (builder *whereBuilder) addKeys(conditions []FieldCond) error {
 	for _, condition := range conditions {
-		pattern, err := foldedPattern("key", condition.Value)
+		pattern, err := loweredPattern("key", condition.Value)
 		if err != nil {
 			return err
 		}
@@ -96,11 +102,11 @@ func (builder *whereBuilder) addContent(
 	conditions []FieldCond,
 ) error {
 	for _, condition := range conditions {
-		pattern, err := foldedPattern("content", condition.Value)
+		pattern, err := loweredPattern("content", condition.Value)
 		if err != nil {
 			return err
 		}
-		clause := `(e.subject_folded GLOB ? OR e.body_folded GLOB ?)`
+		clause := `(e.subject_lower GLOB ? OR e.body_lower GLOB ?)`
 		if condition.Negate {
 			clause = `NOT ` + clause
 		}
@@ -112,11 +118,11 @@ func (builder *whereBuilder) addContent(
 
 func (builder *whereBuilder) addMetadata(conditions []MetaCond) error {
 	for _, condition := range conditions {
-		keyPattern, err := foldedPattern("metadata key", condition.Key)
+		keyPattern, err := loweredPattern("metadata key", condition.Key)
 		if err != nil {
 			return err
 		}
-		valuePattern, err := foldedPattern(
+		valuePattern, err := loweredPattern(
 			"metadata value", condition.Value,
 		)
 		if err != nil {
@@ -126,7 +132,7 @@ func (builder *whereBuilder) addMetadata(conditions []MetaCond) error {
 			SELECT 1 FROM entry_metadata AS pair_meta
 			WHERE pair_meta.entry_id = e.id
 				AND pair_meta.key GLOB ?
-				AND pair_meta.value_folded GLOB ?
+				AND pair_meta.value_lower GLOB ?
 		)`
 		if condition.Negate {
 			clause = `NOT ` + clause
@@ -146,9 +152,13 @@ func buildWhere(filter Filter) (whereBuilder, error) {
 		column     string
 		conditions []FieldCond
 	}{
-		{"subject", "e.subject_folded", filter.Subject},
-		{"body", "e.body_folded", filter.Body},
-		{"type", "e.type_folded", filter.Type},
+		{"subject", "e.subject_lower", filter.Subject},
+		{"body", "e.body_lower", filter.Body},
+		{"type", "e.type_lower", filter.Type},
+		{"origin-user", "e.origin_user_lower", filter.OriginUser},
+		{"origin-host", "e.origin_host_lower", filter.OriginHost},
+		{"origin-dir", "e.origin_dir_lower", filter.OriginDir},
+		{"origin-claude-session", "e.origin_claude_session_lower", filter.OriginClaudeSession},
 	}
 	for _, field := range fields {
 		if err := builder.addField(
@@ -176,7 +186,7 @@ func (builder whereBuilder) sql() string {
 	return " WHERE " + strings.Join(builder.clauses, " AND ")
 }
 
-func foldedPattern(name, pattern string) (string, error) {
+func loweredPattern(name, pattern string) (string, error) {
 	if strings.IndexByte(pattern, 0) >= 0 {
 		return "", fmt.Errorf("%w: %s pattern contains NUL",
 			ErrInvalidFilter, name)
@@ -187,10 +197,10 @@ func foldedPattern(name, pattern string) (string, error) {
 			ErrInvalidFilter, name, MaxSearchPatternLength,
 		)
 	}
-	return foldASCII(pattern), nil
+	return lowerASCII(pattern), nil
 }
 
-func foldASCII(value string) string {
+func lowerASCII(value string) string {
 	var folded []byte
 	for index := 0; index < len(value); index++ {
 		character := value[index]
@@ -254,13 +264,17 @@ func (s *Store) Search(
 	pageQuery := fmt.Sprintf(`
 		WITH page AS (
 			SELECT e.id, e.created_utc, e.modified_utc,
-				e.type, e.subject, e.body
+				e.type, e.subject, e.body,
+				e.origin_user, e.origin_host, e.origin_dir,
+				e.origin_claude_session
 			FROM entries AS e%s
 			ORDER BY e.%s DESC, e.id DESC
 			LIMIT ? OFFSET ?
 		)
 		SELECT page.id, page.created_utc, page.modified_utc,
 			page.type, page.subject, page.body,
+			page.origin_user, page.origin_host, page.origin_dir,
+			page.origin_claude_session,
 			metadata.key, metadata.value
 		FROM page
 		LEFT JOIN entry_metadata AS metadata
@@ -294,6 +308,8 @@ func scanSearchRows(rows *sql.Rows) ([]api.Entry, error) {
 		if err := rows.Scan(
 			&entry.ID, &created, &modified,
 			&entry.Type, &entry.Subject, &entry.Body,
+			&entry.Origin.User, &entry.Origin.Host,
+			&entry.Origin.Dir, &entry.Origin.ClaudeSession,
 			&key, &value,
 		); err != nil {
 			return nil, fmt.Errorf("reading search result: %w", err)

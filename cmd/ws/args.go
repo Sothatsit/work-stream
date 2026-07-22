@@ -103,11 +103,12 @@ func parseArgs(args []string, spec flagSpec) (*parsedArgs, error) {
 
 var searchFields = []string{
 	"subject", "body", "content", "type", "key", "meta",
+	"origin-user", "origin-host", "origin-dir", "origin-claude-session",
 }
 
 // shorthandKeys are metadata keys with a convenience flag on add and
 // search: --project duck-pond is --meta project=duck-pond.
-var shorthandKeys = []string{"project", "jira", "github", "confluence"}
+var shorthandKeys = []string{"project", "jira", "confluence"}
 
 func searchFlagSpec() flagSpec {
 	spec := flagSpec{

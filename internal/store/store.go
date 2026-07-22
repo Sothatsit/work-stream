@@ -31,20 +31,36 @@ const (
 	sqliteLocked        = 6
 )
 
+// createEntries defines the entries table. Each entry records its
+// origin: the OS user, host, working directory, and Claude Code
+// session that created it. Every searchable text field has a lowered
+// twin so GLOB can match without regard to ASCII case.
 const createEntries = `
 CREATE TABLE entries (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	created_utc TEXT NOT NULL,
 	modified_utc TEXT NOT NULL,
 	type TEXT NOT NULL,
-	type_folded TEXT COLLATE BINARY
+	type_lower TEXT COLLATE BINARY
 		GENERATED ALWAYS AS (lower(type)) STORED,
 	subject TEXT NOT NULL,
-	subject_folded TEXT COLLATE BINARY
+	subject_lower TEXT COLLATE BINARY
 		GENERATED ALWAYS AS (lower(subject)) STORED,
 	body TEXT NOT NULL DEFAULT '',
-	body_folded TEXT COLLATE BINARY
-		GENERATED ALWAYS AS (lower(body)) STORED
+	body_lower TEXT COLLATE BINARY
+		GENERATED ALWAYS AS (lower(body)) STORED,
+	origin_user TEXT NOT NULL DEFAULT '',
+	origin_user_lower TEXT COLLATE BINARY
+		GENERATED ALWAYS AS (lower(origin_user)) STORED,
+	origin_host TEXT NOT NULL DEFAULT '',
+	origin_host_lower TEXT COLLATE BINARY
+		GENERATED ALWAYS AS (lower(origin_host)) STORED,
+	origin_dir TEXT NOT NULL DEFAULT '',
+	origin_dir_lower TEXT COLLATE BINARY
+		GENERATED ALWAYS AS (lower(origin_dir)) STORED,
+	origin_claude_session TEXT NOT NULL DEFAULT '',
+	origin_claude_session_lower TEXT COLLATE BINARY
+		GENERATED ALWAYS AS (lower(origin_claude_session)) STORED
 )`
 
 const createMetadata = `
@@ -52,7 +68,7 @@ CREATE TABLE entry_metadata (
 	entry_id INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
 	key TEXT NOT NULL,
 	value TEXT NOT NULL,
-	value_folded TEXT COLLATE BINARY
+	value_lower TEXT COLLATE BINARY
 		GENERATED ALWAYS AS (lower(value)) STORED,
 	PRIMARY KEY (entry_id, key)
 ) WITHOUT ROWID`
@@ -66,10 +82,10 @@ CREATE INDEX entries_modified_order
 ON entries(modified_utc DESC, id DESC)`
 
 const createTypeIndex = `
-CREATE INDEX entries_type_search ON entries(type_folded)`
+CREATE INDEX entries_type_search ON entries(type_lower)`
 
 const createSubjectIndex = `
-CREATE INDEX entries_subject_search ON entries(subject_folded)`
+CREATE INDEX entries_subject_search ON entries(subject_lower)`
 
 var schemaStatements = []string{
 	createEntries,
@@ -420,9 +436,12 @@ func (s *Store) Add(
 	now := nowUTC()
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO entries (
-			created_utc, modified_utc, type, subject, body
-		) VALUES (?, ?, ?, ?, ?)`,
+			created_utc, modified_utc, type, subject, body,
+			origin_user, origin_host, origin_dir, origin_claude_session
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		now, now, req.Type, req.Subject, req.Body,
+		req.Origin.User, req.Origin.Host, req.Origin.Dir,
+		req.Origin.ClaudeSession,
 	)
 	if err != nil {
 		return api.Entry{}, fmt.Errorf("adding entry: %w", err)
@@ -707,7 +726,8 @@ func getEntry(
 	id int64,
 ) (api.Entry, error) {
 	row := db.QueryRowContext(ctx, `
-		SELECT id, created_utc, modified_utc, type, subject, body
+		SELECT id, created_utc, modified_utc, type, subject, body,
+			origin_user, origin_host, origin_dir, origin_claude_session
 		FROM entries WHERE id = ?`, id,
 	)
 	entry, err := scanEntry(row)
@@ -735,6 +755,8 @@ func scanEntry(row rowScanner) (api.Entry, error) {
 	err := row.Scan(
 		&entry.ID, &created, &modified,
 		&entry.Type, &entry.Subject, &entry.Body,
+		&entry.Origin.User, &entry.Origin.Host,
+		&entry.Origin.Dir, &entry.Origin.ClaudeSession,
 	)
 	if err != nil {
 		return api.Entry{}, err
