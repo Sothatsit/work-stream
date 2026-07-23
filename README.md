@@ -1,8 +1,11 @@
 # work-stream
 
-`ws` is a shared log for people and agents. Entries have a type, a
+Work-stream is a shared chronological log for agents. Agents log
+decisions, progress, and artifacts as they work, so every session
+can see what the others have been up to. Entries have a type, a
 short subject, an optional body, and optional key-value metadata.
-`ws-server` keeps them in SQLite.
+`ws-server` maintains the log, and `ws` is the CLI agents use to
+access it.
 
 ## Build
 
@@ -14,50 +17,38 @@ This produces `bin/ws` and `bin/ws-server`.
 
 ## Setup
 
-The server needs an absolute data directory. Pass it with `--data`.
-`WORK_STREAM_DATA` can also supply the directory.
+Set these in your bashrc, on the server host and every client host:
 
-The server listens on port 7139 by default. Change it with
-`WORK_STREAM_PORT` or `--port`. Without a secret, the server listens
-only on localhost. With a secret, it listens on all interfaces.
+```
+export WORK_STREAM_DATA=/absolute/path/for/server/data
+export WORK_STREAM_ADDRESS=localhost   # the server's host
+export WORK_STREAM_PORT=7139
+```
 
-Clients connect to localhost on port 7139 by default. Set
-`WORK_STREAM_ADDRESS` and `WORK_STREAM_PORT`, or pass the global
-`--address` and `--port` flags before the command, to change this.
-
-`WORK_STREAM_TIMEOUT` sets the client or server deadline. The default
-is 5 seconds. Override it with the server's `--timeout` flag or the
-client's global `--timeout` flag before the command. `ws --version`
-and `ws secret` work without a server.
-
-### Secret Authentication
-
-Authentication is optional. Generate one shared secret, then set it
-in the server and every client environment:
+To let clients on other hosts connect, generate one shared secret
+and add it to every environment:
 
 ```
 bin/ws secret
 export WORK_STREAM_SECRET='<printed value>'
 ```
 
-`ws secret` does not replace a value already set in the environment.
+Connections use plain HTTP with no encryption. Keep work-stream on
+a trusted private network, never the public internet.
 
-Connections use plain HTTP with no encryption. work-stream is intended
-for trusted private networks, not public internet hosting.
-
-## Run
+## Run the Server
 
 ```
-bin/ws-server --data /path/to/work-stream
+bin/ws-server
 ```
 
-## Use
+The server stores entries in SQLite under `WORK_STREAM_DATA` and
+listens on `WORK_STREAM_PORT`. Without a secret it listens on
+loopback only. With one, it listens on all interfaces.
+
+## Use the CLI
 
 Run `ws help` for the full command reference.
-
-Types can have 64 characters, subjects 128, bodies 2048, metadata
-keys 64, and metadata values 256. Each entry can have 16 metadata
-pairs.
 
 ```
 # Add entries.
@@ -80,7 +71,7 @@ ws add-meta e1 pr https://github.com/example/pond/pull/123
 ws status
 ```
 
-### Search entries
+### Search
 
 Search flags take full-string, ASCII-case-insensitive SQLite GLOB
 patterns:
@@ -91,11 +82,18 @@ patterns:
 --project  --jira  --confluence
 ```
 
-Prefix any flag with `--no-` to exclude it. `--content` matches the
-subject or body. `--meta` takes `KEY=VALUE`; both patterns must match
-the same metadata pair. Repeated filters AND together.
+Prefix any flag with `--no-` to exclude it (e.g., `--no-subject`).
+`--content` matches the subject or body. `--meta` takes `KEY=VALUE`;
+both patterns must match the same metadata pair. Repeated filters
+AND together.
 
 A pattern without wildcards is exact. `*` matches any text, `?` one
 character, and brackets form character classes. Quote patterns so the
 shell does not expand them. In a pattern, use `[*]`, `[?]`, and `[[]`
 for literal `*`, `?`, and `[`.
+
+## Agent Skill
+
+`skills/ws/SKILL.md` is an example agent skill for the `ws` CLI.
+Copy it into your skills directory and edit its conventions to fit
+how you work.
