@@ -4,7 +4,7 @@ package api
 
 import "time"
 
-const MaxResponseBytes = 32 << 20
+const MaxResponseBytes = 64 << 20
 
 // Origin records where an entry was created: the OS user, host, and
 // working directory of the ws client, plus the Claude Code session id

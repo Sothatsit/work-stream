@@ -65,6 +65,18 @@ check() {
     fi
 }
 
+check_equal() {
+    local desc="$1" expected="$2" actual="$3"
+    if [[ "$actual" == "$expected" ]]; then
+        echo "PASS: $desc"
+    else
+        echo "FAIL: $desc"
+        echo "  expected: $expected"
+        echo "  actual: $actual"
+        failures=$((failures + 1))
+    fi
+}
+
 check_status() {
     local desc="$1" expected="$2"
     shift 2
@@ -93,20 +105,20 @@ ws add note "Reviewed the duck PR" \
     --meta pr=https://example.com/pr/7 --jira QUACK-1 >/dev/null # e2
 ws add note "Handle [duck]? literally" >/dev/null # e3
 
-check "GLOB reaches the server" "[e1]" \
-    "$(ws search --subject '*stock*')"
-check "GLOB is ASCII case-insensitive" "[e2]" \
-    "$(ws search --jira 'quack-*')"
-check "positional search escapes GLOB characters" "[e3]" \
-    "$(ws search '[duck]?')"
-check "metadata pair keeps key and value together" "No matching entries." \
-    "$(ws search --meta 'pr=QUACK-*')"
-check "negation reaches the server" "e1" \
+check_equal "GLOB reaches the server" "e1" \
+    "$(ws search --subject '*stock*' --id-only)"
+check_equal "GLOB is ASCII case-insensitive" "e2" \
+    "$(ws search --jira 'quack-*' --id-only)"
+check_equal "positional search escapes GLOB characters" "e3" \
+    "$(ws search '[duck]?' --id-only)"
+check_equal "metadata pair keeps key and value together" "" \
+    "$(ws search --meta 'pr=QUACK-*' --id-only)"
+check_equal "negation reaches the server" "e1" \
     "$(ws search --no-type note --id-only)"
 
 ws edit e1 --body "The Long Form Detail" >/dev/null
-check "content searches subject or body" "[e1]" \
-    "$(ws search --content '*long form*')"
+check_equal "content searches subject or body" "e1" \
+    "$(ws search --content '*long form*' --id-only)"
 check "entry shows the body" "The Long Form Detail" "$(ws entry e1)"
 check "list hides the body" "0" \
     "$(ws search Stock | grep -c 'Long Form Detail' || true)"

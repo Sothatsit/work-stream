@@ -89,7 +89,7 @@ Editing:
   refuses to overwrite an existing key; use 'ws edit-meta' to change one.
 
 Server location:
-  Global --address, --port, and --timeout flags override
+  --address, --port, and --timeout before the command override
   WORK_STREAM_ADDRESS, WORK_STREAM_PORT, and WORK_STREAM_TIMEOUT.
   Defaults are ` + defaultAddress + `, port ` + defaultPort + `, and 5s.
   WORK_STREAM_SECRET supplies the optional shared bearer secret.
@@ -110,6 +110,9 @@ func extractGlobalFlags(
 	seen := map[string]bool{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
+		if arg == "--" {
+			return args[i+1:], address, port, timeout, nil
+		}
 		name, value, hasValue := arg, "", false
 		if idx := strings.Index(arg, "="); idx >= 0 {
 			name = arg[:idx]
@@ -117,8 +120,7 @@ func extractGlobalFlags(
 			hasValue = true
 		}
 		if name != "--address" && name != "--port" && name != "--timeout" {
-			rest = append(rest, arg)
-			continue
+			return args[i:], address, port, timeout, nil
 		}
 		if seen[name] {
 			return nil, "", "", "", fmt.Errorf("%s given more than once", name)
@@ -142,7 +144,7 @@ func extractGlobalFlags(
 			timeout = value
 		}
 	}
-	return rest, address, port, timeout, nil
+	return nil, address, port, timeout, nil
 }
 
 func main() {

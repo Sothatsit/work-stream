@@ -263,6 +263,9 @@ func (c *client) do(
 
 func (c *client) addEntry(req api.AddEntryRequest) (api.Entry, error) {
 	var entry api.Entry
+	if err := req.Validate(); err != nil {
+		return entry, err
+	}
 	err := c.do(addOperation, 0, "POST", "/api/entries", req, &entry)
 	return entry, err
 }
@@ -278,6 +281,9 @@ func (c *client) editEntry(
 	id int64, req api.EditEntryRequest,
 ) (api.Entry, error) {
 	var entry api.Entry
+	if err := req.Validate(); err != nil {
+		return entry, err
+	}
 	path := fmt.Sprintf("/api/entries/%d", id)
 	err := c.do(editOperation, id, "PATCH", path, req, &entry)
 	return entry, err
@@ -299,6 +305,9 @@ func (c *client) addMeta(
 	id int64, key, value string,
 ) (api.Entry, error) {
 	var entry api.Entry
+	if err := api.ValidateMeta(key, value); err != nil {
+		return entry, err
+	}
 	req := api.MetaRequest{Key: key, Value: value}
 	path := fmt.Sprintf("/api/entries/%d/metadata", id)
 	err := c.do(addMetaOperation, id, "POST", path, req, &entry)
@@ -309,6 +318,9 @@ func (c *client) editMeta(
 	id int64, key, value string,
 ) (api.Entry, error) {
 	var entry api.Entry
+	if err := api.ValidateMeta(key, value); err != nil {
+		return entry, err
+	}
 	req := api.MetaRequest{Value: value}
 	path := fmt.Sprintf(
 		"/api/entries/%d/metadata/%s", id, url.PathEscape(key),
@@ -319,6 +331,9 @@ func (c *client) editMeta(
 
 func (c *client) removeMeta(id int64, key string) (api.Entry, error) {
 	var entry api.Entry
+	if err := api.ValidateKey(key); err != nil {
+		return entry, err
+	}
 	path := fmt.Sprintf(
 		"/api/entries/%d/metadata/%s", id, url.PathEscape(key),
 	)

@@ -32,6 +32,9 @@ const (
 var keyPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 
 func checkLen(field, value string, max int) error {
+	if !utf8.ValidString(value) {
+		return fmt.Errorf("%s is not valid UTF-8", field)
+	}
 	if n := utf8.RuneCountInString(value); n > max {
 		return fmt.Errorf("%s is too long: %d chars (max %d)", field, n, max)
 	}

@@ -44,9 +44,14 @@ func parseArgs(args []string, spec flagSpec) (*parsedArgs, error) {
 		bools:   map[string]bool{},
 		present: map[string]bool{},
 	}
+	parseFlags := true
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if !strings.HasPrefix(arg, "-") || arg == "-" || arg == "--" {
+		if parseFlags && arg == "--" {
+			parseFlags = false
+			continue
+		}
+		if !parseFlags || !strings.HasPrefix(arg, "-") || arg == "-" {
 			p.pos = append(p.pos, arg)
 			continue
 		}

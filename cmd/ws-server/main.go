@@ -33,6 +33,13 @@ func run(args []string) error {
 		return err
 	}
 	address := ":" + cfg.port
+	listenScope := "all interfaces"
+	authentication := "enabled"
+	if cfg.secret == "" {
+		address = net.JoinHostPort("127.0.0.1", cfg.port)
+		listenScope = "loopback only"
+		authentication = "disabled"
+	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("listening on %s: %w", address, err)
@@ -76,20 +83,43 @@ func run(args []string) error {
 		context.Background(), os.Interrupt, syscall.SIGTERM,
 	)
 	defer stopSignals()
+	log.Printf(
+		"ws-server %s listening on %s "+
+			"(scope: %s, authentication: %s, data: %s)",
+		version.Software, listener.Addr(), listenScope,
+		authentication, cfg.data,
+	)
+	return serveUntilShutdown(
+		server, listener, shutdownSignal, cfg.timeout,
+	)
+}
+
+func serveUntilShutdown(
+	server *http.Server,
+	listener net.Listener,
+	shutdownSignal context.Context,
+	timeout time.Duration,
+) error {
+	shutdownSignal, cancelShutdown := context.WithCancel(shutdownSignal)
+	defer cancelShutdown()
+	shutdownComplete := make(chan error, 1)
 	go func() {
 		<-shutdownSignal.Done()
 		shutdownContext, cancel := context.WithTimeout(
-			context.Background(), cfg.timeout,
+			context.Background(), timeout,
 		)
 		defer cancel()
-		if err := server.Shutdown(shutdownContext); err != nil {
-			log.Printf("server shutdown failed: %v", err)
-		}
+		shutdownComplete <- server.Shutdown(shutdownContext)
 	}()
-	log.Printf("ws-server %s listening on %s (data: %s)",
-		version.Software, listener.Addr(), cfg.data)
-	if err := server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
-		return err
+
+	serveErr := server.Serve(listener)
+	cancelShutdown()
+	shutdownErr := <-shutdownComplete
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		return serveErr
+	}
+	if shutdownErr != nil {
+		return fmt.Errorf("shutting down server: %w", shutdownErr)
 	}
 	return nil
 }

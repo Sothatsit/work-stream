@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Sothatsit/work-stream/internal/api"
 	"github.com/Sothatsit/work-stream/internal/store"
@@ -247,14 +248,23 @@ func writeBadRequest(w http.ResponseWriter, message string) {
 }
 
 func decodeBody(w http.ResponseWriter, r *http.Request, value any) bool {
-	decoder := json.NewDecoder(r.Body)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeBadRequest(w, "reading request body: "+err.Error())
+		return false
+	}
+	if !utf8.Valid(body) {
+		writeBadRequest(w, "request body is not valid UTF-8")
+		return false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(value); err != nil {
 		writeBadRequest(w, "invalid request body: "+err.Error())
 		return false
 	}
 	var trailing any
-	err := decoder.Decode(&trailing)
+	err = decoder.Decode(&trailing)
 	if !errors.Is(err, io.EOF) {
 		if err == nil {
 			writeBadRequest(w, "request body must contain one JSON value")
