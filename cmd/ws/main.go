@@ -74,13 +74,13 @@ Search flags:
   A positional <text> is escaped and matched as a literal substring
   of the subject OR body. All filters AND together, including repeats.
 
-  --limit <n>, -n <n>    max entries to show (1..500, default 50)
+  --limit <n>, -n <n>    max entries to show (1..500, default 20)
   --offset <n>           skip the first n matching entries
   --order-by-creation    newest first by creation time (default)
   --order-by-modified    newest first by modification time
   --id-only              print one entry id per line (for scripting)
 
-'ws recent' is 'ws search' with no filters: the newest 50 entries.
+'ws recent' is 'ws search' with no filters: the newest 20 entries.
 
 Editing:
   'ws edit' changes subject and/or body; --body "" clears the body.
@@ -340,7 +340,7 @@ func cmdSearch(c *client, command string, args []string) {
 		failf("--order-by-creation and --order-by-modified " +
 			"cannot be combined")
 	}
-	limit := 50
+	limit := 20
 	if p.has("--limit") {
 		if limit, err = parseLimit(p.strs["--limit"]); err != nil {
 			fail(err)

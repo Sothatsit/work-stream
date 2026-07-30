@@ -467,7 +467,7 @@ func (h *handler) search(w http.ResponseWriter, r *http.Request) {
 		writeBadRequest(w, err.Error())
 		return
 	}
-	limit, err := searchInteger(query, "limit", 50)
+	limit, err := searchInteger(query, "limit", 20)
 	if err != nil || limit < 1 || limit > 500 {
 		if err != nil {
 			writeBadRequest(w, err.Error())

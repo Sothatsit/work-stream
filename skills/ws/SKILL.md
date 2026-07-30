@@ -30,7 +30,7 @@ characters; longer detail goes in `--body`, up to 2048.
 ws recent [-n <limit>] [--offset <n>] [--order-by-creation | --order-by-modified]
 ```
 
-The newest entries, default 50. A listing shows the subject alone,
+The newest entries, default 20. A listing shows the subject alone,
 open an entry with `ws entry` to see its body and metadata.
 
 ### search
@@ -95,7 +95,7 @@ whole value: `--subject`, `--body`, `--content` (subject or body),
 Prefix any flag with `--no-` to exclude (e.g., `--no-subject`).
 Repeated filters AND together. Patterns use `*`, `?`, and bracket
 classes; quote them so the shell does not expand them. Default limit
-is 50, maximum 500.
+is 20, maximum 500.
 
 To find what your current Claude session logged:
 `ws search --origin-claude-session "$CLAUDE_CODE_SESSION_ID"`.
