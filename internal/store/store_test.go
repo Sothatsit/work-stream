@@ -98,13 +98,9 @@ func TestGeneratedColumnsFollowWrites(t *testing.T) {
 	body := "CHANGED Σ"
 	if _, err := store.Edit(ctx, entry.ID, api.EditEntryRequest{
 		Type: &entryType, Subject: &subject, Body: &body,
+		Metadata: map[string]string{"jira": "CHANGED Æ"},
 	}); err != nil {
 		t.Fatalf("editing entry: %v", err)
-	}
-	if _, err := store.EditMeta(
-		ctx, entry.ID, "jira", "CHANGED Æ",
-	); err != nil {
-		t.Fatalf("editing metadata: %v", err)
 	}
 	assertFolded("note", "changed Æ", "changed Σ", "changed Æ")
 }
@@ -169,65 +165,32 @@ func TestDeleteCascadesMetadata(t *testing.T) {
 	}
 }
 
-func TestAddMetaDuplicateRollsBackModifiedTime(t *testing.T) {
-	ctx := context.Background()
-	store := openTestStore(t)
-	entry := mustAdd(t, store, "note", "entry", "",
-		map[string]string{"jira": "QUACK-1"})
-	oldTime := "2000-01-01T00:00:00.000000000Z"
-	if _, err := store.db.ExecContext(ctx, `
-		UPDATE entries SET modified_utc = ? WHERE id = ?`,
-		oldTime, entry.ID,
-	); err != nil {
-		t.Fatalf("setting old modification time: %v", err)
-	}
-	_, err := store.AddMeta(ctx, entry.ID, "jira", "QUACK-2")
-	if !errors.Is(err, ErrMetaExists) {
-		t.Fatalf("add-meta error = %v, want ErrMetaExists", err)
-	}
-	got, err := store.Get(ctx, entry.ID)
-	if err != nil {
-		t.Fatalf("getting entry: %v", err)
-	}
-	wantTime, err := time.Parse(time.RFC3339, oldTime)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !got.Modified.Equal(wantTime) {
-		t.Fatalf("modified = %v, want %v", got.Modified, wantTime)
-	}
-	if got.Metadata["jira"] != "QUACK-1" {
-		t.Fatalf("metadata was overwritten: %v", got.Metadata)
-	}
-}
-
 func TestMetadataMutationsReturnTouchedEntry(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
-		name  string
-		apply func(context.Context, *Store, int64) (api.Entry, error)
-		want  map[string]string
+		name string
+		set  map[string]string
+		want map[string]string
 	}{
 		{
 			"add",
-			func(ctx context.Context, store *Store, id int64) (api.Entry, error) {
-				return store.AddMeta(ctx, id, "review", "done")
-			},
+			map[string]string{"review": "done"},
 			map[string]string{"jira": "QUACK-1", "review": "done"},
 		},
 		{
-			"edit",
-			func(ctx context.Context, store *Store, id int64) (api.Entry, error) {
-				return store.EditMeta(ctx, id, "jira", "QUACK-2")
-			},
+			"overwrite",
+			map[string]string{"jira": "QUACK-2"},
 			map[string]string{"jira": "QUACK-2"},
 		},
 		{
 			"remove",
-			func(ctx context.Context, store *Store, id int64) (api.Entry, error) {
-				return store.RemoveMeta(ctx, id, "jira")
-			},
+			map[string]string{"jira": ""},
 			map[string]string{},
+		},
+		{
+			"remove a key that was never set",
+			map[string]string{"review": ""},
+			map[string]string{"jira": "QUACK-1"},
 		},
 	}
 	for _, test := range tests {
@@ -242,7 +205,9 @@ func TestMetadataMutationsReturnTouchedEntry(t *testing.T) {
 			); err != nil {
 				t.Fatalf("setting old modification time: %v", err)
 			}
-			got, err := test.apply(ctx, store, entry.ID)
+			got, err := store.Edit(ctx, entry.ID, api.EditEntryRequest{
+				Metadata: test.set,
+			})
 			if err != nil {
 				t.Fatalf("changing metadata: %v", err)
 			}
@@ -325,7 +290,9 @@ func TestConcurrentMetadataWritesSerialize(t *testing.T) {
 	for _, id := range []int64{first.ID, second.ID} {
 		go func() {
 			<-start
-			_, err := store.AddMeta(ctx, id, "review", "done")
+			_, err := store.Edit(ctx, id, api.EditEntryRequest{
+				Metadata: map[string]string{"review": "done"},
+			})
 			results <- err
 		}()
 	}
@@ -340,27 +307,26 @@ func TestConcurrentMetadataWritesSerialize(t *testing.T) {
 	for _, value := range []string{"QUACK-1", "QUACK-2"} {
 		go func() {
 			<-start
-			_, err := store.AddMeta(ctx, first.ID, "jira", value)
+			_, err := store.Edit(ctx, first.ID, api.EditEntryRequest{
+				Metadata: map[string]string{"jira": value},
+			})
 			results <- err
 		}()
 	}
 	close(start)
-	succeeded := 0
-	conflicted := 0
 	for range 2 {
-		err := <-results
-		switch {
-		case err == nil:
-			succeeded++
-		case errors.Is(err, ErrMetaExists):
-			conflicted++
-		default:
+		if err := <-results; err != nil {
 			t.Fatalf("competing metadata write: %v", err)
 		}
 	}
-	if succeeded != 1 || conflicted != 1 {
-		t.Fatalf("competing writes: %d succeeded, %d conflicted",
-			succeeded, conflicted)
+	got, err := store.Get(ctx, first.ID)
+	if err != nil {
+		t.Fatalf("getting entry: %v", err)
+	}
+	if got.Metadata["jira"] != "QUACK-1" &&
+		got.Metadata["jira"] != "QUACK-2" {
+		t.Fatalf("jira = %q, want one of the competing values",
+			got.Metadata["jira"])
 	}
 }
 
@@ -372,12 +338,7 @@ func TestMetadataLimitStopsEntryGrowth(t *testing.T) {
 	}
 	entry := mustAdd(t, store, "note", "bounded", "", metadata)
 	ctx := context.Background()
-	_, err := store.AddMeta(ctx, entry.ID, "overflow", "value")
-	if !errors.Is(err, ErrMetadataLimit) {
-		t.Fatalf("AddMeta error = %v, want ErrMetadataLimit", err)
-	}
-
-	_, err = store.Edit(ctx, entry.ID, api.EditEntryRequest{
+	_, err := store.Edit(ctx, entry.ID, api.EditEntryRequest{
 		Metadata: map[string]string{"overflow": "value"},
 	})
 	if !errors.Is(err, ErrMetadataLimit) {

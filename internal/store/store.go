@@ -17,8 +17,6 @@ import (
 
 var (
 	ErrEntryNotFound   = errors.New("entry not found")
-	ErrMetaNotFound    = errors.New("metadata key not found")
-	ErrMetaExists      = errors.New("metadata key already exists")
 	ErrMetadataLimit   = errors.New("metadata pair limit reached")
 	ErrInvalidDatabase = errors.New("invalid work-stream database")
 )
@@ -528,6 +526,17 @@ func (s *Store) Edit(
 	}
 
 	for key, value := range req.Metadata {
+		if value == "" {
+			if _, err := tx.ExecContext(ctx, `
+				DELETE FROM entry_metadata
+				WHERE entry_id = ? AND key = ?`, id, key,
+			); err != nil {
+				return api.Entry{}, fmt.Errorf(
+					"removing metadata: %w", err)
+			}
+			continue
+		}
+
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO entry_metadata (entry_id, key, value)
 			VALUES (?, ?, ?)
@@ -583,165 +592,6 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 		return fmt.Errorf("committing deleted entry: %w", err)
 	}
 	return nil
-}
-
-func touchEntry(
-	ctx context.Context,
-	tx *sql.Tx,
-	id int64,
-) error {
-	result, err := tx.ExecContext(ctx, `
-		UPDATE entries SET modified_utc = ? WHERE id = ?`, nowUTC(), id,
-	)
-	if err != nil {
-		return err
-	}
-	matched, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if matched == 0 {
-		return ErrEntryNotFound
-	}
-	return nil
-}
-
-func entryExists(ctx context.Context, tx *sql.Tx, id int64) error {
-	var exists bool
-	if err := tx.QueryRowContext(ctx, `
-		SELECT EXISTS(SELECT 1 FROM entries WHERE id = ?)`, id,
-	).Scan(&exists); err != nil {
-		return err
-	}
-	if !exists {
-		return ErrEntryNotFound
-	}
-	return nil
-}
-
-func (s *Store) AddMeta(
-	ctx context.Context,
-	id int64,
-	key string,
-	value string,
-) (api.Entry, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("adding metadata: %w", err)
-	}
-	defer tx.Rollback()
-	if err := touchEntry(ctx, tx, id); err != nil {
-		return api.Entry{}, err
-	}
-	var count int
-	var exists bool
-	if err := tx.QueryRowContext(ctx, `
-		SELECT count(*), coalesce(max(key = ?), 0)
-		FROM entry_metadata WHERE entry_id = ?`, key, id,
-	).Scan(&count, &exists); err != nil {
-		return api.Entry{}, fmt.Errorf("checking metadata: %w", err)
-	}
-	if exists {
-		return api.Entry{}, ErrMetaExists
-	}
-	if count >= api.MaxMetadata {
-		return api.Entry{}, ErrMetadataLimit
-	}
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO entry_metadata (entry_id, key, value)
-		VALUES (?, ?, ?)`, id, key, value,
-	); err != nil {
-		return api.Entry{}, fmt.Errorf("adding metadata: %w", err)
-	}
-	entry, err := getEntry(ctx, tx, id)
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("reading changed entry: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return api.Entry{}, fmt.Errorf("committing metadata: %w", err)
-	}
-	return entry, nil
-}
-
-func (s *Store) EditMeta(
-	ctx context.Context,
-	id int64,
-	key string,
-	value string,
-) (api.Entry, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("editing metadata: %w", err)
-	}
-	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, `
-		UPDATE entry_metadata SET value = ?
-		WHERE entry_id = ? AND key = ?`, value, id, key,
-	)
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("editing metadata: %w", err)
-	}
-	matched, err := result.RowsAffected()
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("checking edited metadata: %w", err)
-	}
-	if matched == 0 {
-		if err := entryExists(ctx, tx, id); err != nil {
-			return api.Entry{}, err
-		}
-		return api.Entry{}, ErrMetaNotFound
-	}
-	if err := touchEntry(ctx, tx, id); err != nil {
-		return api.Entry{}, err
-	}
-	entry, err := getEntry(ctx, tx, id)
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("reading changed entry: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return api.Entry{}, fmt.Errorf("committing metadata: %w", err)
-	}
-	return entry, nil
-}
-
-func (s *Store) RemoveMeta(
-	ctx context.Context,
-	id int64,
-	key string,
-) (api.Entry, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("removing metadata: %w", err)
-	}
-	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, `
-		DELETE FROM entry_metadata WHERE entry_id = ? AND key = ?`,
-		id, key,
-	)
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("removing metadata: %w", err)
-	}
-	matched, err := result.RowsAffected()
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("checking removed metadata: %w", err)
-	}
-	if matched == 0 {
-		if err := entryExists(ctx, tx, id); err != nil {
-			return api.Entry{}, err
-		}
-		return api.Entry{}, ErrMetaNotFound
-	}
-	if err := touchEntry(ctx, tx, id); err != nil {
-		return api.Entry{}, err
-	}
-	entry, err := getEntry(ctx, tx, id)
-	if err != nil {
-		return api.Entry{}, fmt.Errorf("reading changed entry: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return api.Entry{}, fmt.Errorf("committing metadata: %w", err)
-	}
-	return entry, nil
 }
 
 type databaseReader interface {

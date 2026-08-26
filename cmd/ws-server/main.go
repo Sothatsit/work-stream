@@ -140,9 +140,6 @@ func routes(h *handler) http.Handler {
 	mux.HandleFunc("GET /api/entries/{id}", h.getEntry)
 	mux.HandleFunc("PATCH /api/entries/{id}", h.editEntry)
 	mux.HandleFunc("DELETE /api/entries/{id}", h.deleteEntry)
-	mux.HandleFunc("POST /api/entries/{id}/metadata", h.addMeta)
-	mux.HandleFunc("PUT /api/entries/{id}/metadata/{key}", h.editMeta)
-	mux.HandleFunc("DELETE /api/entries/{id}/metadata/{key}", h.removeMeta)
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusNotFound,
 			api.ErrorResponse{Error: "route not found"})
@@ -256,82 +253,6 @@ func (h *handler) deleteEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *handler) addMeta(w http.ResponseWriter, r *http.Request) {
-	if !requireNoQuery(w, r) {
-		return
-	}
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-	var request api.MetaRequest
-	if !decodeBody(w, r, &request) {
-		return
-	}
-	if err := api.ValidateMeta(request.Key, request.Value); err != nil {
-		writeBadRequest(w, err.Error())
-		return
-	}
-	entry, err := h.store.AddMeta(
-		r.Context(), id, request.Key, request.Value,
-	)
-	if err != nil {
-		writeStoreError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, entry)
-}
-
-type metaValueRequest struct {
-	Value string `json:"value"`
-}
-
-func (h *handler) editMeta(w http.ResponseWriter, r *http.Request) {
-	if !requireNoQuery(w, r) {
-		return
-	}
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-	var request metaValueRequest
-	if !decodeBody(w, r, &request) {
-		return
-	}
-	key := r.PathValue("key")
-	if err := api.ValidateMeta(key, request.Value); err != nil {
-		writeBadRequest(w, err.Error())
-		return
-	}
-	entry, err := h.store.EditMeta(r.Context(), id, key, request.Value)
-	if err != nil {
-		writeStoreError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, entry)
-}
-
-func (h *handler) removeMeta(w http.ResponseWriter, r *http.Request) {
-	if !requireNoQuery(w, r) {
-		return
-	}
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-	key := r.PathValue("key")
-	if err := api.ValidateKey(key); err != nil {
-		writeBadRequest(w, err.Error())
-		return
-	}
-	entry, err := h.store.RemoveMeta(r.Context(), id, key)
-	if err != nil {
-		writeStoreError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, entry)
 }
 
 var repeatedQueryParameters = map[string]bool{

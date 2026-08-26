@@ -82,6 +82,11 @@ func ValidateMeta(key, value string) error {
 	if err := ValidateKey(key); err != nil {
 		return err
 	}
+	if value == "" {
+		return fmt.Errorf(
+			"metadata %s has no value; on 'ws edit' an empty value "+
+				"removes the key", key)
+	}
 	if err := checkOneLine("metadata value", value); err != nil {
 		return err
 	}
@@ -94,6 +99,29 @@ func validateMetadata(md map[string]string) error {
 			len(md), MaxMetadata)
 	}
 	for key, value := range md {
+		if err := ValidateMeta(key, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateMetadataEdits checks the metadata an edit sets. An empty
+// value asks for the key to be removed, so it carries no value to
+// check.
+func validateMetadataEdits(md map[string]string) error {
+	if len(md) > MaxMetadata {
+		return fmt.Errorf("too many metadata pairs: %d (max %d)",
+			len(md), MaxMetadata)
+	}
+	for key, value := range md {
+		if value == "" {
+			if err := ValidateKey(key); err != nil {
+				return err
+			}
+			continue
+		}
+
 		if err := ValidateMeta(key, value); err != nil {
 			return err
 		}
@@ -200,5 +228,5 @@ func (r EditEntryRequest) Validate() error {
 			return err
 		}
 	}
-	return validateMetadata(r.Metadata)
+	return validateMetadataEdits(r.Metadata)
 }

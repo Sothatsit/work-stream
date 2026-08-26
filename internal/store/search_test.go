@@ -158,8 +158,10 @@ func TestSearchOrdersEditedEntryFirstByDefault(t *testing.T) {
 	); err != nil {
 		t.Fatalf("setting modification times: %v", err)
 	}
-	if _, err := entries.store.EditMeta(
-		context.Background(), entries.first.ID, "jira", "QUACK-9",
+	if _, err := entries.store.Edit(
+		context.Background(), entries.first.ID, api.EditEntryRequest{
+			Metadata: map[string]string{"jira": "QUACK-9"},
+		},
 	); err != nil {
 		t.Fatalf("editing metadata: %v", err)
 	}

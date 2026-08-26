@@ -136,6 +136,11 @@ check_equal "edit adds metadata through a shorthand" "e3" \
 ws edit e2 --jira QUACK-9 >/dev/null
 check_equal "edit overwrites an existing metadata value" "" \
     "$(ws search --jira QUACK-1 --id-only)"
+ws edit e2 --jira "" >/dev/null
+check_equal "an empty value removes the metadata" "e3" \
+    "$(ws search --key jira --id-only)"
+check "creating with an empty value is refused" "has no value" \
+    "$(ws add note "empty meta" --confluence "" 2>&1 || true)"
 
 ws edit e1 --body "The Long Form Detail" >/dev/null
 check_equal "content searches subject or body" "e1" \

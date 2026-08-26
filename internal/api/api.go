@@ -38,20 +38,13 @@ type AddEntryRequest struct {
 
 // EditEntryRequest uses pointers so a field can be updated to the
 // empty string (e.g. clearing the body) while absent fields are left
-// untouched. Metadata pairs are set or overwritten, never removed;
-// removing one needs the meta endpoints.
+// untouched. Metadata is set or overwritten, never removed; removing
+// it needs the meta endpoints.
 type EditEntryRequest struct {
 	Type     *string           `json:"type,omitempty"`
 	Subject  *string           `json:"subject,omitempty"`
 	Body     *string           `json:"body,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
-}
-
-// MetaRequest carries a metadata pair. The key is omitted on PUT,
-// where it comes from the URL path.
-type MetaRequest struct {
-	Key   string `json:"key,omitempty"`
-	Value string `json:"value"`
 }
 
 type SearchResult struct {

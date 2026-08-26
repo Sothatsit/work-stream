@@ -221,12 +221,8 @@ func writeStoreError(w http.ResponseWriter, err error) {
 	case errors.Is(err, store.ErrInvalidFilter):
 		status = http.StatusBadRequest
 		message = err.Error()
-	case errors.Is(err, store.ErrEntryNotFound),
-		errors.Is(err, store.ErrMetaNotFound):
+	case errors.Is(err, store.ErrEntryNotFound):
 		status = http.StatusNotFound
-		message = err.Error()
-	case errors.Is(err, store.ErrMetaExists):
-		status = http.StatusConflict
 		message = err.Error()
 	case errors.Is(err, store.ErrMetadataLimit):
 		status = http.StatusConflict

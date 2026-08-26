@@ -29,9 +29,6 @@ Usage:
   ws edit <id> [<subject>] [--type <t>] [--subject <s>] [--body <b>]
           [--meta <key>=<value>]... [--project <p>] [--jira <k>] ...
   ws delete <id>
-  ws add-meta <id> <key> <value>
-  ws edit-meta <id> <key> <value>
-  ws remove-meta <id> <key>
   ws status
   ws secret
   ws --version
@@ -94,13 +91,11 @@ changed entries. Editing an entry lifts it back to the top, so a fact
 you correct resurfaces instead of staying buried under newer entries.
 
 Editing:
-  'ws edit' changes type, subject, body, and metadata, taking --meta
-  and the shorthands just as 'ws add' does. It sets or overwrites a
-  pair without complaint. --body "" clears the body, and type and
-  subject cannot be cleared. To remove a pair use 'ws remove-meta'.
-  'ws add-meta' refuses to overwrite an existing key; 'ws edit-meta'
-  changes one that must already be there. An entry's id, timestamps,
-  and origin record where it came from and cannot be changed.
+  'ws edit' changes type, subject, body, and metadata. --body ""
+  clears the body, and type and subject cannot be cleared. Giving a
+  metadata key no value removes it, as in --meta jira= or --jira "".
+  An entry's id, timestamps, and origin record where it came from and
+  cannot be changed.
 
 Server location:
   --address, --port, and --timeout before the command override
@@ -208,12 +203,6 @@ func main() {
 		cmdEdit(c, args)
 	case "delete":
 		cmdDelete(c, args)
-	case "add-meta":
-		cmdAddMeta(c, args)
-	case "edit-meta":
-		cmdEditMeta(c, args)
-	case "remove-meta":
-		cmdRemoveMeta(c, args)
 	case "status":
 		cmdStatus(c, args)
 	default:
@@ -466,50 +455,6 @@ func cmdDelete(c *client, args []string) {
 		fail(err)
 	}
 	fmt.Printf("Deleted entry [e%d].\n", id)
-}
-
-func metaArgs(args []string, usage string) (int64, string, string) {
-	if len(args) != 3 {
-		failf("usage: %s", usage)
-	}
-	id, err := parseEntryID(args[0])
-	if err != nil {
-		fail(err)
-	}
-	return id, args[1], args[2]
-}
-
-func cmdAddMeta(c *client, args []string) {
-	id, key, value := metaArgs(args, "ws add-meta <id> <key> <value>")
-	entry, err := c.addMeta(id, key, value)
-	if err != nil {
-		fail(err)
-	}
-	fmt.Printf("Added metadata %s to entry [e%d].\n", key, entry.ID)
-}
-
-func cmdEditMeta(c *client, args []string) {
-	id, key, value := metaArgs(args, "ws edit-meta <id> <key> <value>")
-	entry, err := c.editMeta(id, key, value)
-	if err != nil {
-		fail(err)
-	}
-	fmt.Printf("Edited metadata %s on entry [e%d].\n", key, entry.ID)
-}
-
-func cmdRemoveMeta(c *client, args []string) {
-	if len(args) != 2 {
-		failf("usage: ws remove-meta <id> <key>")
-	}
-	id, err := parseEntryID(args[0])
-	if err != nil {
-		fail(err)
-	}
-	entry, err := c.removeMeta(id, args[1])
-	if err != nil {
-		fail(err)
-	}
-	fmt.Printf("Removed metadata %s from entry [e%d].\n", args[1], entry.ID)
 }
 
 func cmdStatus(c *client, args []string) {

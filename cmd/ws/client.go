@@ -32,17 +32,13 @@ const (
 	addOperation
 	editOperation
 	deleteOperation
-	addMetaOperation
-	editMetaOperation
-	removeMetaOperation
 )
 
 func (op requestOperation) advice(id int64) string {
 	switch op {
 	case addOperation:
 		return "check 'ws recent' before retrying"
-	case editOperation, deleteOperation, addMetaOperation,
-		editMetaOperation, removeMetaOperation:
+	case editOperation, deleteOperation:
 		return fmt.Sprintf("check 'ws entry e%d' before retrying", id)
 	default:
 		return ""
@@ -299,46 +295,6 @@ func (c *client) search(params url.Values) (api.SearchResult, error) {
 	path := "/api/entries?" + params.Encode()
 	err := c.do(readOperation, 0, "GET", path, nil, &result)
 	return result, err
-}
-
-func (c *client) addMeta(
-	id int64, key, value string,
-) (api.Entry, error) {
-	var entry api.Entry
-	if err := api.ValidateMeta(key, value); err != nil {
-		return entry, err
-	}
-	req := api.MetaRequest{Key: key, Value: value}
-	path := fmt.Sprintf("/api/entries/%d/metadata", id)
-	err := c.do(addMetaOperation, id, "POST", path, req, &entry)
-	return entry, err
-}
-
-func (c *client) editMeta(
-	id int64, key, value string,
-) (api.Entry, error) {
-	var entry api.Entry
-	if err := api.ValidateMeta(key, value); err != nil {
-		return entry, err
-	}
-	req := api.MetaRequest{Value: value}
-	path := fmt.Sprintf(
-		"/api/entries/%d/metadata/%s", id, url.PathEscape(key),
-	)
-	err := c.do(editMetaOperation, id, "PUT", path, req, &entry)
-	return entry, err
-}
-
-func (c *client) removeMeta(id int64, key string) (api.Entry, error) {
-	var entry api.Entry
-	if err := api.ValidateKey(key); err != nil {
-		return entry, err
-	}
-	path := fmt.Sprintf(
-		"/api/entries/%d/metadata/%s", id, url.PathEscape(key),
-	)
-	err := c.do(removeMetaOperation, id, "DELETE", path, nil, &entry)
-	return entry, err
 }
 
 func (c *client) status() (api.StatusResponse, error) {

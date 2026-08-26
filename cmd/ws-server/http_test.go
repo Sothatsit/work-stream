@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sothatsit/work-stream/internal/api"
 	"github.com/Sothatsit/work-stream/internal/version"
 )
 
@@ -63,16 +64,16 @@ func TestStrictJSONBody(t *testing.T) {
 		name string
 		body string
 	}{
-		{"unknown field", `{"value":"x","extra":true}`},
-		{"second value", `{"value":"x"} {"value":"y"}`},
+		{"unknown field", `{"body":"x","extra":true}`},
+		{"second value", `{"body":"x"} {"body":"y"}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPut, "/",
+			request := httptest.NewRequest(http.MethodPatch, "/",
 				strings.NewReader(test.body))
 			response := httptest.NewRecorder()
-			var value metaValueRequest
-			if decodeBody(response, request, &value) {
+			var edit api.EditEntryRequest
+			if decodeBody(response, request, &edit) {
 				t.Fatal("decodeBody accepted invalid JSON")
 			}
 			if response.Code != http.StatusBadRequest {

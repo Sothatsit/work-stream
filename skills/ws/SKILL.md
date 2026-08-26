@@ -62,10 +62,9 @@ ws edit <id> [<subject>] [--type <t>] [--subject <s>] [--body <b>]
         [--meta <key>=<value>]... [--project <p>] [--jira <k>] ...
 ```
 
-Changes type, subject, body, and metadata, taking `--meta` and the
-shorthands just as `ws add` does. It sets or overwrites a pair without
-complaint. `--body ""` clears the body, and type and subject cannot be
-cleared. To remove a pair use `ws remove-meta`. An entry's id,
+Changes type, subject, body, and metadata. `--body ""` clears the
+body, and type and subject cannot be cleared. Giving a metadata key no
+value removes it, as in `--meta jira=` or `--jira ""`. An entry's id,
 timestamps, and origin record where it came from and cannot be
 changed.
 
@@ -74,16 +73,6 @@ changed.
 ```
 ws delete <id>
 ```
-
-### add-meta / edit-meta / remove-meta
-
-```
-ws add-meta <id> <key> <value>
-ws edit-meta <id> <key> <value>
-ws remove-meta <id> <key>
-```
-
-`add-meta` refuses to overwrite an existing key.
 
 ### status
 

@@ -65,7 +65,8 @@ ws search --origin-host bud110 --origin-claude-session '050f8e2e*'
 
 # Edit entries and metadata.
 ws edit e1 "Count the new ducklings (Solved 22/07/2026)"
-ws add-meta e1 pr https://github.com/example/pond/pull/123
+ws edit e1 --meta pr=https://github.com/example/pond/pull/123
+ws edit e1 --jira ""
 
 # Check the server.
 ws status
