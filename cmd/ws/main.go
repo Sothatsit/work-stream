@@ -62,20 +62,24 @@ E.g. ws search --jira 'QUACK-*' is
 ws search --meta 'jira=QUACK-*'.
 
 Search flags:
-  --subject, --body, --content, --type, --key, --meta, and the origin
-  filters --origin-user, --origin-host, --origin-dir, and
-  --origin-claude-session take
-  ASCII-case-insensitive GLOB patterns. Patterns match the full value;
-  use '*', '?', and bracket classes for wildcards. --content matches
-  the subject OR body. Prefix a flag with 'no-' to exclude. --meta
-  splits its key=value pattern on the first '='. Shorthands take a
-  value pattern. Quote patterns so the shell does not expand them.
+  Every filter takes an ASCII-case-insensitive GLOB pattern, using
+  '*', '?', and bracket classes for wildcards. Quote patterns so the
+  shell does not expand them. Nothing is escaped for you, so to match
+  a literal '*', '?', or '[', put it in a bracket class: '[*]'.
 
-  A positional <text> is a GLOB wrapped in '*', so it matches anywhere
-  in the subject OR body and needs no wildcards of its own. Its
-  wildcards still work: 'ws search "*duck*"' and 'ws search duck' find
-  the same entries. To match a literal '*', '?', or '[', put it in a
-  bracket class: '[*]'. All filters AND together, including repeats.
+  --subject, --body, and --content search prose, so they match any
+  part of the text: --subject duck finds 'Count the Ducklings'.
+  --content searches the subject OR body, and a positional <text> is
+  the same as --content.
+
+  --type, --key, --meta, and the origin filters --origin-user,
+  --origin-host, --origin-dir, and --origin-claude-session name one
+  of a known set, so they match the whole value: --type not finds
+  nothing, --type 'not*' finds notes. --meta splits its key=value
+  pattern on the first '='. Shorthands take a value pattern.
+
+  Prefix a flag with 'no-' to exclude. All filters AND together,
+  including repeats.
 
   --limit <n>, -n <n>    max entries to show (1..500, default 20)
   --offset <n>           skip the first n matching entries
@@ -318,7 +322,7 @@ func cmdSearch(c *client, command string, args []string) {
 			failf("'ws recent' takes no <text> argument " +
 				"(use 'ws search <text>')")
 		}
-		params.Add("content", "*"+p.pos[0]+"*")
+		params.Add("content", p.pos[0])
 	}
 	for flag, values := range p.lists {
 		if key, negate, ok := shorthandFor(flag); ok {

@@ -66,13 +66,14 @@ func TestSearchUsesRawCaseFoldedGlobPatterns(t *testing.T) {
 		want    []int64
 	}{
 		{"whole string", "COUNT THE DUCKLINGS", []int64{entries.first.ID}},
+		{"bare text matches anywhere", "DUCKLINGS", []int64{
+			entries.third.ID, entries.first.ID,
+		}},
 		{"wildcard", "*DUCKLINGS*", []int64{
 			entries.third.ID, entries.first.ID,
 		}},
 		{"single character", "fix nes?", []int64{entries.second.ID}},
-		{"character class", "[cf]*", []int64{
-			entries.fourth.ID, entries.second.ID, entries.first.ID,
-		}},
+		{"character class", "fi[xz] nest", []int64{entries.second.ID}},
 		{"non-ASCII is unchanged", "æther", nil},
 		{"matching non-ASCII", "ÆTHER", []int64{entries.fifth.ID}},
 	}
@@ -84,6 +85,19 @@ func TestSearchUsesRawCaseFoldedGlobPatterns(t *testing.T) {
 			assertEntryIDs(t, result.Entries, test.want...)
 		})
 	}
+}
+
+func TestSearchMatchesTypeWholeValue(t *testing.T) {
+	entries := newSearchEntries(t)
+	result := runSearch(t, entries.store, Filter{
+		Type: []FieldCond{{Value: "not"}},
+	})
+	assertEntryIDs(t, result.Entries)
+
+	result = runSearch(t, entries.store, Filter{
+		Type: []FieldCond{{Value: "not*"}},
+	})
+	assertEntryIDs(t, result.Entries, entries.fifth.ID, entries.third.ID)
 }
 
 func TestSearchSetAndPairNegationUsesNotExists(t *testing.T) {

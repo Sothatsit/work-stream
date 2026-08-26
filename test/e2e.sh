@@ -109,9 +109,15 @@ check_equal "GLOB reaches the server" "e1" \
     "$(ws search --subject '*stock*' --id-only)"
 check_equal "GLOB is ASCII case-insensitive" "e2" \
     "$(ws search --jira 'quack-*' --id-only)"
+check_equal "prose filters match part of the value" "e1" \
+    "$(ws search --subject Stock --id-only)"
+check_equal "enum-like filters match the whole value" "" \
+    "$(ws search --type not --id-only)"
+check_equal "a wildcard widens an enum-like filter" "e3
+e2" "$(ws search --type 'not*' --id-only)"
 check_equal "positional wildcards reach the server unescaped" "e1" \
     "$(ws search '*Stock*' --id-only)"
-check_equal "positional without wildcards still matches anywhere" "e1" \
+check_equal "positional without wildcards matches anywhere" "e1" \
     "$(ws search Stock --id-only)"
 check_equal "bracket class matches a literal wildcard" "e3" \
     "$(ws search '[?]' --id-only)"

@@ -145,6 +145,21 @@ func (builder *whereBuilder) addMetadata(conditions []MetaCond) error {
 	return nil
 }
 
+// matchAnywhere widens patterns for the fields holding prose, so they
+// match any part of the text the way a search box does. Type, key,
+// origin, and metadata patterns stay whole-value matches, because they
+// name one of a known set rather than describe its contents.
+func matchAnywhere(conditions []FieldCond) []FieldCond {
+	widened := make([]FieldCond, len(conditions))
+	for index, condition := range conditions {
+		widened[index] = FieldCond{
+			Negate: condition.Negate,
+			Value:  "*" + condition.Value + "*",
+		}
+	}
+	return widened
+}
+
 func buildWhere(filter Filter) (whereBuilder, error) {
 	var builder whereBuilder
 	fields := []struct {
@@ -152,8 +167,8 @@ func buildWhere(filter Filter) (whereBuilder, error) {
 		column     string
 		conditions []FieldCond
 	}{
-		{"subject", "e.subject_lower", filter.Subject},
-		{"body", "e.body_lower", filter.Body},
+		{"subject", "e.subject_lower", matchAnywhere(filter.Subject)},
+		{"body", "e.body_lower", matchAnywhere(filter.Body)},
 		{"type", "e.type_lower", filter.Type},
 		{"origin-user", "e.origin_user_lower", filter.OriginUser},
 		{"origin-host", "e.origin_host_lower", filter.OriginHost},
@@ -170,7 +185,7 @@ func buildWhere(filter Filter) (whereBuilder, error) {
 	if err := builder.addKeys(filter.Key); err != nil {
 		return whereBuilder{}, err
 	}
-	if err := builder.addContent(filter.Content); err != nil {
+	if err := builder.addContent(matchAnywhere(filter.Content)); err != nil {
 		return whereBuilder{}, err
 	}
 	if err := builder.addMetadata(filter.Meta); err != nil {

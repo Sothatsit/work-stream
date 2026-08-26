@@ -42,8 +42,8 @@ and metadata.
 ws search [<text>] [filters] [--id-only]
 ```
 
-A bare `<text>` is a GLOB wrapped in `*`, so it matches anywhere in the
-subject or body: `ws search duck` and `ws search '*duck*'` find the
+A bare `<text>` is the same as `--content`, so it matches any part of
+the subject or body: `ws search duck` and `ws search '*duck*'` find the
 same entries. Filters are described below. `--id-only` prints an entry
 id per line.
 
@@ -90,12 +90,18 @@ Server address, connectivity, and secret state.
 
 ### Search filters
 
-Field filters take ASCII-case-insensitive GLOB patterns matching the
-whole value: `--subject`, `--body`, `--content` (subject or body),
-`--type`, `--key`, and `--meta <key>=<value>`. Origin filters:
+Every filter takes an ASCII-case-insensitive GLOB pattern.
+
+`--subject`, `--body`, and `--content` (subject or body) search prose,
+so they match any part of the value: `--subject duck` finds "Count the
+Ducklings".
+
+`--type`, `--key`, `--meta <key>=<value>`, the origin filters
 `--origin-user`, `--origin-host`, `--origin-dir`,
-`--origin-claude-session`. Shorthands match a metadata value:
-`--project`, `--jira`, `--confluence`.
+`--origin-claude-session`, and the metadata shorthands `--project`,
+`--jira`, `--confluence` each name one of a known set, so they match
+the whole value: `--type not` finds nothing, `--type 'not*'` finds
+notes.
 
 Prefix any flag with `--no-` to exclude (e.g., `--no-subject`).
 Repeated filters AND together. Patterns use `*`, `?`, and bracket
