@@ -165,8 +165,21 @@ func (r AddEntryRequest) Validate() error {
 }
 
 func (r EditEntryRequest) Validate() error {
-	if r.Subject == nil && r.Body == nil {
-		return fmt.Errorf("nothing to edit: provide subject and/or body")
+	if r.Type == nil && r.Subject == nil && r.Body == nil &&
+		len(r.Metadata) == 0 {
+		return fmt.Errorf(
+			"nothing to edit: provide type, subject, body and/or metadata")
+	}
+	if r.Type != nil {
+		if *r.Type == "" {
+			return fmt.Errorf("type cannot be set to empty")
+		}
+		if err := checkOneLine("type", *r.Type); err != nil {
+			return err
+		}
+		if err := checkLen("type", *r.Type, MaxTypeLen); err != nil {
+			return err
+		}
 	}
 	if r.Subject != nil {
 		if *r.Subject == "" {
@@ -187,5 +200,5 @@ func (r EditEntryRequest) Validate() error {
 			return err
 		}
 	}
-	return nil
+	return validateMetadata(r.Metadata)
 }

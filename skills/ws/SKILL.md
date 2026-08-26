@@ -58,11 +58,16 @@ Shows one entry in full: subject, origin, metadata, and body.
 ### edit
 
 ```
-ws edit <id> [<subject>] [--subject <s>] [--body <b>]
+ws edit <id> [<subject>] [--type <t>] [--subject <s>] [--body <b>]
+        [--meta <key>=<value>]... [--project <p>] [--jira <k>] ...
 ```
 
-Changes subject and/or body. `--body ""` clears the body. Metadata is
-changed with the meta commands.
+Changes type, subject, body, and metadata, taking `--meta` and the
+shorthands just as `ws add` does. It sets or overwrites a pair without
+complaint. `--body ""` clears the body, and type and subject cannot be
+cleared. To remove a pair use `ws remove-meta`. An entry's id,
+timestamps, and origin record where it came from and cannot be
+changed.
 
 ### delete
 

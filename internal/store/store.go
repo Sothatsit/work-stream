@@ -489,7 +489,8 @@ func (s *Store) Edit(
 	id int64,
 	req api.EditEntryRequest,
 ) (api.Entry, error) {
-	if req.Subject == nil && req.Body == nil {
+	if req.Type == nil && req.Subject == nil && req.Body == nil &&
+		len(req.Metadata) == 0 {
 		return api.Entry{}, errors.New("nothing to edit")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -500,6 +501,10 @@ func (s *Store) Edit(
 
 	query := `UPDATE entries SET modified_utc = ?`
 	args := []any{nowUTC()}
+	if req.Type != nil {
+		query += `, type = ?`
+		args = append(args, *req.Type)
+	}
 	if req.Subject != nil {
 		query += `, subject = ?`
 		args = append(args, *req.Subject)
@@ -521,6 +526,30 @@ func (s *Store) Edit(
 	if matched == 0 {
 		return api.Entry{}, ErrEntryNotFound
 	}
+
+	for key, value := range req.Metadata {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO entry_metadata (entry_id, key, value)
+			VALUES (?, ?, ?)
+			ON CONFLICT (entry_id, key)
+			DO UPDATE SET value = excluded.value`, id, key, value,
+		); err != nil {
+			return api.Entry{}, fmt.Errorf("editing metadata: %w", err)
+		}
+	}
+	if len(req.Metadata) > 0 {
+		var count int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT count(*) FROM entry_metadata WHERE entry_id = ?`, id,
+		).Scan(&count); err != nil {
+			return api.Entry{}, fmt.Errorf("checking metadata: %w", err)
+		}
+
+		if count > api.MaxMetadata {
+			return api.Entry{}, ErrMetadataLimit
+		}
+	}
+
 	entry, err := getEntry(ctx, tx, id)
 	if err != nil {
 		return api.Entry{}, fmt.Errorf("reading edited entry: %w", err)

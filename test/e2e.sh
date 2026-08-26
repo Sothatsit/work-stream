@@ -126,6 +126,17 @@ check_equal "metadata pair keeps key and value together" "" \
 check_equal "negation reaches the server" "e1" \
     "$(ws search --no-type note --id-only)"
 
+ws edit e3 --type decision >/dev/null
+check_equal "a retyped entry is found under its new type" "e3" \
+    "$(ws search --type decision --id-only)"
+
+ws edit e3 --jira QUACK-2 --meta pr=https://example.com/pr/9 >/dev/null
+check_equal "edit adds metadata through a shorthand" "e3" \
+    "$(ws search --jira QUACK-2 --id-only)"
+ws edit e2 --jira QUACK-9 >/dev/null
+check_equal "edit overwrites an existing metadata value" "" \
+    "$(ws search --jira QUACK-1 --id-only)"
+
 ws edit e1 --body "The Long Form Detail" >/dev/null
 check_equal "content searches subject or body" "e1" \
     "$(ws search --content '*long form*' --id-only)"

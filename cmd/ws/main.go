@@ -26,7 +26,8 @@ Usage:
   ws recent [search flags]
   ws search [<text>] [search flags]
   ws entry <id>
-  ws edit <id> [<subject>] [--subject <s>] [--body <b>]
+  ws edit <id> [<subject>] [--type <t>] [--subject <s>] [--body <b>]
+          [--meta <key>=<value>]... [--project <p>] [--jira <k>] ...
   ws delete <id>
   ws add-meta <id> <key> <value>
   ws edit-meta <id> <key> <value>
@@ -93,9 +94,13 @@ changed entries. Editing an entry lifts it back to the top, so a fact
 you correct resurfaces instead of staying buried under newer entries.
 
 Editing:
-  'ws edit' changes subject and/or body; --body "" clears the body.
-  Metadata is changed with add-meta/edit-meta/remove-meta. 'ws add-meta'
-  refuses to overwrite an existing key; use 'ws edit-meta' to change one.
+  'ws edit' changes type, subject, body, and metadata, taking --meta
+  and the shorthands just as 'ws add' does. It sets or overwrites a
+  pair without complaint. --body "" clears the body, and type and
+  subject cannot be cleared. To remove a pair use 'ws remove-meta'.
+  'ws add-meta' refuses to overwrite an existing key; 'ws edit-meta'
+  changes one that must already be there. An entry's id, timestamps,
+  and origin record where it came from and cannot be changed.
 
 Server location:
   --address, --port, and --timeout before the command override
@@ -229,6 +234,31 @@ func cmdAdd(c *client, args []string) {
 		failf("usage: ws add <type> <subject> [--body <b>] " +
 			"[--meta <key>=<value>]... [--project <p>] [--jira <k>] ...")
 	}
+	metadata := collectMetadata(p)
+	origin, err := captureOrigin()
+	if err != nil {
+		fail(err)
+	}
+	req := api.AddEntryRequest{
+		Type:     p.pos[0],
+		Subject:  p.pos[1],
+		Body:     p.strs["--body"],
+		Metadata: metadata,
+		Origin:   origin,
+	}
+	if err := req.Validate(); err != nil {
+		fail(err)
+	}
+	entry, err := c.addEntry(req)
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("Added entry [e%d].\n", entry.ID)
+}
+
+// collectMetadata gathers the pairs given by --meta and the shorthand
+// flags, which 'ws add' and 'ws edit' accept alike.
+func collectMetadata(p *parsedArgs) map[string]string {
 	metadata := map[string]string{}
 	set := func(key, value string) {
 		if _, exists := metadata[key]; exists {
@@ -249,25 +279,7 @@ func cmdAdd(c *client, args []string) {
 			set(key, value)
 		}
 	}
-	origin, err := captureOrigin()
-	if err != nil {
-		fail(err)
-	}
-	req := api.AddEntryRequest{
-		Type:     p.pos[0],
-		Subject:  p.pos[1],
-		Body:     p.strs["--body"],
-		Metadata: metadata,
-		Origin:   origin,
-	}
-	if err := req.Validate(); err != nil {
-		fail(err)
-	}
-	entry, err := c.addEntry(req)
-	if err != nil {
-		fail(err)
-	}
-	fmt.Printf("Added entry [e%d].\n", entry.ID)
+	return metadata
 }
 
 func shorthandFlags() []string {
@@ -393,19 +405,28 @@ func cmdEntry(c *client, args []string) {
 }
 
 func cmdEdit(c *client, args []string) {
-	spec := flagSpec{strs: []string{"--subject", "--body"}}
+	spec := flagSpec{
+		strs:   []string{"--type", "--subject", "--body"},
+		repeat: append([]string{"--meta"}, shorthandFlags()...),
+	}
 	p, err := parseArgs(args, spec)
 	if err != nil {
 		fail(err)
 	}
 	if len(p.pos) < 1 || len(p.pos) > 2 {
-		failf("usage: ws edit <id> [<subject>] [--subject <s>] [--body <b>]")
+		failf("usage: ws edit <id> [<subject>] [--type <t>] " +
+			"[--subject <s>] [--body <b>] [--meta <key>=<value>]... " +
+			"[--project <p>] [--jira <k>] ...")
 	}
 	id, err := parseEntryID(p.pos[0])
 	if err != nil {
 		fail(err)
 	}
 	req := api.EditEntryRequest{}
+	if p.has("--type") {
+		entryType := p.strs["--type"]
+		req.Type = &entryType
+	}
 	if len(p.pos) == 2 {
 		if p.has("--subject") {
 			failf("positional <subject> and --subject are both given; " +
@@ -419,6 +440,9 @@ func cmdEdit(c *client, args []string) {
 	if p.has("--body") {
 		body := p.strs["--body"]
 		req.Body = &body
+	}
+	if metadata := collectMetadata(p); len(metadata) > 0 {
+		req.Metadata = metadata
 	}
 	if err := req.Validate(); err != nil {
 		fail(err)

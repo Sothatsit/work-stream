@@ -93,10 +93,11 @@ func TestGeneratedColumnsFollowWrites(t *testing.T) {
 	}
 	assertFolded("todo", "count Æ", "body Σ", "quack Æ")
 
+	entryType := "NOTE"
 	subject := "CHANGED Æ"
 	body := "CHANGED Σ"
 	if _, err := store.Edit(ctx, entry.ID, api.EditEntryRequest{
-		Subject: &subject, Body: &body,
+		Type: &entryType, Subject: &subject, Body: &body,
 	}); err != nil {
 		t.Fatalf("editing entry: %v", err)
 	}
@@ -105,7 +106,7 @@ func TestGeneratedColumnsFollowWrites(t *testing.T) {
 	); err != nil {
 		t.Fatalf("editing metadata: %v", err)
 	}
-	assertFolded("todo", "changed Æ", "changed Σ", "changed Æ")
+	assertFolded("note", "changed Æ", "changed Σ", "changed Æ")
 }
 
 func TestMutationRollsBackWhenResultCannotBeRead(t *testing.T) {
@@ -370,11 +371,27 @@ func TestMetadataLimitStopsEntryGrowth(t *testing.T) {
 		metadata[fmt.Sprintf("key-%d", index)] = "value"
 	}
 	entry := mustAdd(t, store, "note", "bounded", "", metadata)
-	_, err := store.AddMeta(
-		context.Background(), entry.ID, "overflow", "value",
-	)
+	ctx := context.Background()
+	_, err := store.AddMeta(ctx, entry.ID, "overflow", "value")
 	if !errors.Is(err, ErrMetadataLimit) {
 		t.Fatalf("AddMeta error = %v, want ErrMetadataLimit", err)
+	}
+
+	_, err = store.Edit(ctx, entry.ID, api.EditEntryRequest{
+		Metadata: map[string]string{"overflow": "value"},
+	})
+	if !errors.Is(err, ErrMetadataLimit) {
+		t.Fatalf("Edit error = %v, want ErrMetadataLimit", err)
+	}
+
+	edited, err := store.Edit(ctx, entry.ID, api.EditEntryRequest{
+		Metadata: map[string]string{"key-0": "replaced"},
+	})
+	if err != nil {
+		t.Fatalf("overwriting a metadata value at the limit: %v", err)
+	}
+	if got := edited.Metadata["key-0"]; got != "replaced" {
+		t.Fatalf("key-0 = %q, want replaced", got)
 	}
 }
 
