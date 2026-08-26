@@ -65,7 +65,8 @@ Search flags:
   Every filter takes an ASCII-case-insensitive GLOB pattern, using
   '*', '?', and bracket classes for wildcards. Quote patterns so the
   shell does not expand them. Nothing is escaped for you, so to match
-  a literal '*', '?', or '[', put it in a bracket class: '[*]'.
+  a literal '*', '?', or '[', put it in a bracket class, like
+  --content '*[*]args*' to partial match '*args'.
 
   --subject, --body, and --content search prose, so they match any
   part of the text: --subject duck finds 'Count the Ducklings'.
@@ -74,8 +75,8 @@ Search flags:
 
   --type, --key, --meta, and the origin filters --origin-user,
   --origin-host, --origin-dir, and --origin-claude-session name one
-  of a known set, so they match the whole value: --type not finds
-  nothing, --type 'not*' finds notes. --meta splits its key=value
+  of a known set, so they match the whole value: --type not does not
+  match 'note', while --type 'not*' does. --meta splits its key=value
   pattern on the first '='. Shorthands take a value pattern.
 
   Prefix a flag with 'no-' to exclude. All filters AND together,

@@ -100,15 +100,15 @@ Ducklings".
 `--origin-user`, `--origin-host`, `--origin-dir`,
 `--origin-claude-session`, and the metadata shorthands `--project`,
 `--jira`, `--confluence` each name one of a known set, so they match
-the whole value: `--type not` finds nothing, `--type 'not*'` finds
-notes.
+the whole value: `--type not` does not match `note`, while
+`--type 'not*'` does.
 
 Prefix any flag with `--no-` to exclude (e.g., `--no-subject`).
 Repeated filters AND together. Patterns use `*`, `?`, and bracket
 classes; quote them so the shell does not expand them. Nothing is
 escaped for you, so to match a literal `*`, `?`, or `[`, put it in a
-bracket class: `--content '*[*]args*'`. Default limit is 20, maximum
-500.
+bracket class: `--content '*[*]args*'` to partial match `*args`.
+Default limit is 20, maximum 500.
 
 To find what your current Claude session logged:
 `ws search --origin-claude-session "$CLAUDE_CODE_SESSION_ID"`.

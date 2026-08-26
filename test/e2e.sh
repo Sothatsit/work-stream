@@ -111,7 +111,7 @@ check_equal "GLOB is ASCII case-insensitive" "e2" \
     "$(ws search --jira 'quack-*' --id-only)"
 check_equal "prose filters match part of the value" "e1" \
     "$(ws search --subject Stock --id-only)"
-check_equal "enum-like filters match the whole value" "" \
+check_equal "enum-like filters do not match a prefix" "" \
     "$(ws search --type not --id-only)"
 check_equal "a wildcard widens an enum-like filter" "e3
 e2" "$(ws search --type 'not*' --id-only)"
