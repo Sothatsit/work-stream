@@ -7,6 +7,20 @@ test_dir="$(mktemp -d)"
 server_pid=""
 test_secret="quack-test-secret"
 
+# Read the versions from the source rather than mirroring them, so a
+# bump does not silently strand this script on the old contract.
+version_file="$repo/internal/version/version.go"
+api_version="$(sed -nE \
+    's/^[[:space:]]*API[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' \
+    "$version_file")"
+software_version="$(sed -nE \
+    's/^[[:space:]]*Software[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
+    "$version_file")"
+if [[ -z "$api_version" || -z "$software_version" ]]; then
+    echo "could not read the versions from $version_file" >&2
+    exit 1
+fi
+
 cleanup() {
     if [[ -n "$server_pid" ]]; then
         kill "$server_pid" 2>/dev/null || true
@@ -34,7 +48,7 @@ for _ in $(seq 1 50); do
         's/.*listening on .*:([0-9]+) .*/\1/p' \
         "$test_dir/server.log" | tail -1)"
     if [[ -n "$port" ]] && curl -fsS \
-        -H 'Work-Stream-API-Version: 1' \
+        -H "Work-Stream-API-Version: $api_version" \
         -H "Authorization: Bearer $test_secret" \
         "http://localhost:$port/api/status" >/dev/null 2>&1; then
         ready=true
@@ -85,17 +99,17 @@ check_status() {
     check "$desc" "$expected" "$actual"
 }
 
-check "version is offline" "ws 0.1.0" "$(ws --version)"
+check "version is offline" "ws $software_version" "$(ws --version)"
 ws status >/dev/null
 
 check_status "secret is required" "401" \
-    -H 'Work-Stream-API-Version: 1' \
+    -H "Work-Stream-API-Version: $api_version" \
     "http://localhost:$port/api/status"
 check_status "API version is required" "400" \
     -H "Authorization: Bearer $test_secret" \
     "http://localhost:$port/api/status"
 check_status "old routes are absent" "404" \
-    -H 'Work-Stream-API-Version: 1' \
+    -H "Work-Stream-API-Version: $api_version" \
     -H "Authorization: Bearer $test_secret" \
     "http://localhost:$port/entries"
 

@@ -18,3 +18,12 @@ purpose.
 - Fail fast. Prefer crashing over dubious recovery.
 - Build with `scripts/build.sh`. Run the unit tests with
   `go test ./...` and the integration tests with `test/e2e.sh`.
+- Bump `version.API` whenever the wire contract changes: a route
+  added or removed, a field or filter whose meaning changed, or a
+  new default that changes what a request returns. Both sides
+  compare it for an exact match, so a stale client stops with a
+  clear message instead of a confusing 404. `version.Software`
+  names the release and moves on its own, so a docs or bugfix
+  release does not force every client to be rebuilt.
+- Deploy `ws` and `ws-server` together after an API bump. Between
+  the two, every command fails the version check.

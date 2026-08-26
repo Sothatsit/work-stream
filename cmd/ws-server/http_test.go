@@ -38,8 +38,9 @@ func TestAPIAuthenticationDoesNotLogSecret(t *testing.T) {
 	if strings.Contains(logs.String(), secret) {
 		t.Fatal("request log contains the authentication secret")
 	}
-	if got := response.Header().Get(version.APIHeader); got != "1" {
-		t.Fatalf("response API version: got %q, want 1", got)
+	want := strconv.Itoa(version.API)
+	if got := response.Header().Get(version.APIHeader); got != want {
+		t.Fatalf("response API version: got %q, want %q", got, want)
 	}
 }
 
