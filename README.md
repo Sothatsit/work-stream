@@ -74,8 +74,7 @@ ws status
 
 ### Search
 
-Search flags take full-string, ASCII-case-insensitive SQLite GLOB
-patterns:
+Search flags take ASCII-case-insensitive SQLite GLOB patterns:
 
 ```
 --subject  --body  --content  --type  --key  --meta
@@ -83,15 +82,20 @@ patterns:
 --project  --jira  --confluence
 ```
 
+`--subject`, `--body`, and `--content` search prose, so they match any
+part of the value. The rest name one of a known set, so they match the
+whole value: `--type not` does not match `note`, while `--type 'not*'`
+does.
+
 Prefix any flag with `--no-` to exclude it (e.g., `--no-subject`).
 `--content` matches the subject or body. `--meta` takes `KEY=VALUE`;
 both patterns must match the same metadata pair. Repeated filters
 AND together.
 
-A pattern without wildcards is exact. `*` matches any text, `?` one
-character, and brackets form character classes. Quote patterns so the
-shell does not expand them. In a pattern, use `[*]`, `[?]`, and `[[]`
-for literal `*`, `?`, and `[`.
+`*` matches any text, `?` one character, and brackets form character
+classes. Quote patterns so the shell does not expand them. Nothing is
+escaped for you, so use `[*]`, `[?]`, and `[[]` for a literal `*`,
+`?`, and `[`.
 
 ## Agent Skill
 

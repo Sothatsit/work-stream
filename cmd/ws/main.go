@@ -54,7 +54,7 @@ Field limits (characters): type 64, subject 128, body 2048, key 64,
 value 256. An entry can have 16 metadata pairs.
 Type, subject, and metadata values cannot contain control characters.
 
-Shorthands (on add and search) set or match a specific key:
+Shorthands (on add, edit, and search) set or match a specific key:
   --project, --jira, --confluence
 E.g. ws search --jira 'QUACK-*' is
 ws search --meta 'jira=QUACK-*'.

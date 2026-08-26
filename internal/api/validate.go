@@ -59,9 +59,9 @@ func checkBody(value string) error {
 	return nil
 }
 
-// ValidateKey enforces the slug rules and the length cap on a metadata
+// validateKey enforces the slug rules and the length cap on a metadata
 // key.
-func ValidateKey(key string) error {
+func validateKey(key string) error {
 	if key == "" {
 		return fmt.Errorf("metadata key is required")
 	}
@@ -77,9 +77,9 @@ func ValidateKey(key string) error {
 	return nil
 }
 
-// ValidateMeta checks one metadata pair for storage.
-func ValidateMeta(key, value string) error {
-	if err := ValidateKey(key); err != nil {
+// validateMeta checks one metadata pair for storage.
+func validateMeta(key, value string) error {
+	if err := validateKey(key); err != nil {
 		return err
 	}
 	if value == "" {
@@ -99,7 +99,7 @@ func validateMetadata(md map[string]string) error {
 			len(md), MaxMetadata)
 	}
 	for key, value := range md {
-		if err := ValidateMeta(key, value); err != nil {
+		if err := validateMeta(key, value); err != nil {
 			return err
 		}
 	}
@@ -108,21 +108,18 @@ func validateMetadata(md map[string]string) error {
 
 // validateMetadataEdits checks the metadata an edit sets. An empty
 // value asks for the key to be removed, so it carries no value to
-// check.
+// check. Counting is left to the store, which is the only side that
+// knows how many pairs the entry ends up with.
 func validateMetadataEdits(md map[string]string) error {
-	if len(md) > MaxMetadata {
-		return fmt.Errorf("too many metadata pairs: %d (max %d)",
-			len(md), MaxMetadata)
-	}
 	for key, value := range md {
 		if value == "" {
-			if err := ValidateKey(key); err != nil {
+			if err := validateKey(key); err != nil {
 				return err
 			}
 			continue
 		}
 
-		if err := ValidateMeta(key, value); err != nil {
+		if err := validateMeta(key, value); err != nil {
 			return err
 		}
 	}

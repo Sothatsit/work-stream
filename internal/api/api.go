@@ -38,8 +38,7 @@ type AddEntryRequest struct {
 
 // EditEntryRequest uses pointers so a field can be updated to the
 // empty string (e.g. clearing the body) while absent fields are left
-// untouched. Metadata is set or overwritten, never removed; removing
-// it needs the meta endpoints.
+// untouched. A metadata key given an empty value is removed.
 type EditEntryRequest struct {
 	Type     *string           `json:"type,omitempty"`
 	Subject  *string           `json:"subject,omitempty"`

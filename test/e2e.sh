@@ -142,6 +142,15 @@ check_equal "an empty value removes the metadata" "e3" \
 check "creating with an empty value is refused" "has no value" \
     "$(ws add note "empty meta" --confluence "" 2>&1 || true)"
 
+# Removals only shrink an entry, so more of them than the pair limit
+# is not too many.
+removals=()
+for index in $(seq 1 17); do
+    removals+=(--meta "gone$index=")
+done
+check "removing more keys than the pair limit is allowed" "Edited entry" \
+    "$(ws edit e3 "${removals[@]}" 2>&1 || true)"
+
 ws edit e1 --body "The Long Form Detail" >/dev/null
 check_equal "content searches subject or body" "e1" \
     "$(ws search --content '*long form*' --id-only)"
