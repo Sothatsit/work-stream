@@ -136,7 +136,7 @@ func TestSearchContentPagingAndMetadata(t *testing.T) {
 	}
 }
 
-func TestSearchOrderByModifiedIncludesMetadataChanges(t *testing.T) {
+func TestSearchOrdersEditedEntryFirstByDefault(t *testing.T) {
 	entries := newSearchEntries(t)
 	oldTime := "2000-01-01T00:00:00.000000000Z"
 	if _, err := entries.store.db.Exec(
@@ -149,10 +149,17 @@ func TestSearchOrderByModifiedIncludesMetadataChanges(t *testing.T) {
 	); err != nil {
 		t.Fatalf("editing metadata: %v", err)
 	}
-	result := runSearch(t, entries.store, Filter{OrderByModified: true})
+
+	result := runSearch(t, entries.store, Filter{})
 	if result.Entries[0].ID != entries.first.ID {
-		t.Fatalf("first modified entry = %d, want %d",
+		t.Fatalf("first entry = %d, want the edited %d",
 			result.Entries[0].ID, entries.first.ID)
+	}
+
+	byCreation := runSearch(t, entries.store, Filter{OrderByCreation: true})
+	if byCreation.Entries[0].ID != entries.fifth.ID {
+		t.Fatalf("first entry by creation = %d, want the newest %d",
+			byCreation.Entries[0].ID, entries.fifth.ID)
 	}
 }
 

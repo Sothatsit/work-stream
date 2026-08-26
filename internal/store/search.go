@@ -42,7 +42,7 @@ type Filter struct {
 	OriginDir           []FieldCond
 	OriginClaudeSession []FieldCond
 
-	OrderByModified bool
+	OrderByCreation bool
 	Limit           int
 	Offset          int
 }
@@ -257,9 +257,9 @@ func (s *Store) Search(
 		return api.SearchResult{}, fmt.Errorf("counting search results: %w", err)
 	}
 
-	orderColumn := "created_utc"
-	if filter.OrderByModified {
-		orderColumn = "modified_utc"
+	orderColumn := "modified_utc"
+	if filter.OrderByCreation {
+		orderColumn = "created_utc"
 	}
 	pageQuery := fmt.Sprintf(`
 		WITH page AS (

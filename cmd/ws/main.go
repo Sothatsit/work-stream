@@ -71,16 +71,21 @@ Search flags:
   splits its key=value pattern on the first '='. Shorthands take a
   value pattern. Quote patterns so the shell does not expand them.
 
-  A positional <text> is escaped and matched as a literal substring
-  of the subject OR body. All filters AND together, including repeats.
+  A positional <text> is a GLOB wrapped in '*', so it matches anywhere
+  in the subject OR body and needs no wildcards of its own. Its
+  wildcards still work: 'ws search "*duck*"' and 'ws search duck' find
+  the same entries. To match a literal '*', '?', or '[', put it in a
+  bracket class: '[*]'. All filters AND together, including repeats.
 
   --limit <n>, -n <n>    max entries to show (1..500, default 20)
   --offset <n>           skip the first n matching entries
-  --order-by-creation    newest first by creation time (default)
-  --order-by-modified    newest first by modification time
+  --order-by-modified    newest first by modification time (default)
+  --order-by-creation    newest first by creation time
   --id-only              print one entry id per line (for scripting)
 
-'ws recent' is 'ws search' with no filters: the newest 20 entries.
+'ws recent' is 'ws search' with no filters: the 20 most recently
+changed entries. Editing an entry lifts it back to the top, so a fact
+you correct resurfaces instead of staying buried under newer entries.
 
 Editing:
   'ws edit' changes subject and/or body; --body "" clears the body.
@@ -313,7 +318,7 @@ func cmdSearch(c *client, command string, args []string) {
 			failf("'ws recent' takes no <text> argument " +
 				"(use 'ws search <text>')")
 		}
-		params.Add("content", "*"+escapeGlobLiteral(p.pos[0])+"*")
+		params.Add("content", "*"+p.pos[0]+"*")
 	}
 	for flag, values := range p.lists {
 		if key, negate, ok := shorthandFor(flag); ok {
@@ -354,34 +359,17 @@ func cmdSearch(c *client, command string, args []string) {
 	}
 	params.Set("limit", fmt.Sprint(limit))
 	params.Set("offset", fmt.Sprint(offset))
-	orderByModified := p.bools["--order-by-modified"]
-	if orderByModified {
-		params.Set("order-by", "modified")
+	orderByCreation := p.bools["--order-by-creation"]
+	if orderByCreation {
+		params.Set("order-by", "created")
 	}
 
 	result, err := c.search(params)
 	if err != nil {
 		fail(err)
 	}
-	printSearchResult(result, offset, limit, orderByModified,
+	printSearchResult(result, offset, limit, orderByCreation,
 		p.bools["--id-only"])
-}
-
-func escapeGlobLiteral(value string) string {
-	var escaped strings.Builder
-	for _, r := range value {
-		switch r {
-		case '*':
-			escaped.WriteString("[*]")
-		case '?':
-			escaped.WriteString("[?]")
-		case '[':
-			escaped.WriteString("[[]")
-		default:
-			escaped.WriteRune(r)
-		}
-	}
-	return escaped.String()
 }
 
 func cmdEntry(c *client, args []string) {

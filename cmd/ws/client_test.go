@@ -104,12 +104,6 @@ func TestClientDoesNotFollowRedirects(t *testing.T) {
 	}
 }
 
-func TestEscapeGlobLiteral(t *testing.T) {
-	if got, want := escapeGlobLiteral("duck[*?]"), "duck[[][*][?]]"; got != want {
-		t.Fatalf("escapeGlobLiteral() = %q, want %q", got, want)
-	}
-}
-
 func testClient(t *testing.T, serverURL string) *client {
 	t.Helper()
 	parsed, err := url.Parse(serverURL)

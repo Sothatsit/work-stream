@@ -32,21 +32,21 @@ func sortedMetaKeys(md map[string]string) []string {
 
 // listTime is the timestamp a listing shows: the same one it is
 // ordered by, so the date headings and times line up with the sort.
-func listTime(e api.Entry, orderByModified bool) time.Time {
-	if orderByModified {
-		return e.Modified
+func listTime(e api.Entry, orderByCreation bool) time.Time {
+	if orderByCreation {
+		return e.Created
 	}
-	return e.Created
+	return e.Modified
 }
 
 // printEntryLine prints one log-style line per entry: id, type, and the
 // listed time, then the subject. Newlines in the subject are escaped to
 // keep the line a line. The date lives in a heading above each day's
 // entries (see printSearchResult).
-func printEntryLine(e api.Entry, orderByModified bool) {
+func printEntryLine(e api.Entry, orderByCreation bool) {
 	subject := strings.ReplaceAll(e.Subject, "\n", "\\n")
 	fmt.Printf("[e%d] (%s) %s: %s\n", e.ID, e.Type,
-		localClock(listTime(e, orderByModified)), subject)
+		localClock(listTime(e, orderByCreation)), subject)
 }
 
 func printOrigin(o api.Origin) {
@@ -87,7 +87,7 @@ func printEntryDetail(e api.Entry) {
 
 func printSearchResult(
 	result api.SearchResult, offset, limit int,
-	orderByModified, idOnly bool,
+	orderByCreation, idOnly bool,
 ) {
 	if idOnly {
 		for _, e := range result.Entries {
@@ -108,7 +108,7 @@ func printSearchResult(
 	// entry lines themselves only carry the time.
 	lastDate := ""
 	for _, e := range result.Entries {
-		date := localDate(listTime(e, orderByModified))
+		date := localDate(listTime(e, orderByCreation))
 		if date != lastDate {
 			if lastDate != "" {
 				fmt.Println()
@@ -116,7 +116,7 @@ func printSearchResult(
 			fmt.Println(date)
 			lastDate = date
 		}
-		printEntryLine(e, orderByModified)
+		printEntryLine(e, orderByCreation)
 	}
 	remaining := result.Total - offset - len(result.Entries)
 	if remaining > 0 {

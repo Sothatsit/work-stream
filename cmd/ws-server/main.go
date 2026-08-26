@@ -501,9 +501,9 @@ func (h *handler) search(w http.ResponseWriter, r *http.Request) {
 	}
 	if values := query["order-by"]; len(values) != 0 {
 		switch values[0] {
-		case "created":
 		case "modified":
-			filter.OrderByModified = true
+		case "created":
+			filter.OrderByCreation = true
 		default:
 			writeBadRequest(w, "order-by must be 'created' or 'modified'")
 			return

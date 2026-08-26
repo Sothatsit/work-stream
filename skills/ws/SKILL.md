@@ -30,8 +30,11 @@ characters; longer detail goes in `--body`, up to 2048.
 ws recent [-n <limit>] [--offset <n>] [--order-by-creation | --order-by-modified]
 ```
 
-The newest entries, default 20. A listing shows the subject alone,
-open an entry with `ws entry` to see its body and metadata.
+The most recently changed entries, default 20. Editing an entry lifts
+it back to the top, so a fact you correct resurfaces. Pass
+`--order-by-creation` for the order entries were written in. A listing
+shows the subject alone, open an entry with `ws entry` to see its body
+and metadata.
 
 ### search
 
@@ -39,8 +42,10 @@ open an entry with `ws entry` to see its body and metadata.
 ws search [<text>] [filters] [--id-only]
 ```
 
-A bare `<text>` matches a literal substring of the subject or body.
-Filters are described below. `--id-only` prints an entry id per line.
+A bare `<text>` is a GLOB wrapped in `*`, so it matches anywhere in the
+subject or body: `ws search duck` and `ws search '*duck*'` find the
+same entries. Filters are described below. `--id-only` prints an entry
+id per line.
 
 ### entry
 
@@ -94,8 +99,10 @@ whole value: `--subject`, `--body`, `--content` (subject or body),
 
 Prefix any flag with `--no-` to exclude (e.g., `--no-subject`).
 Repeated filters AND together. Patterns use `*`, `?`, and bracket
-classes; quote them so the shell does not expand them. Default limit
-is 20, maximum 500.
+classes; quote them so the shell does not expand them. Nothing is
+escaped for you, so to match a literal `*`, `?`, or `[`, put it in a
+bracket class: `--content '*[*]args*'`. Default limit is 20, maximum
+500.
 
 To find what your current Claude session logged:
 `ws search --origin-claude-session "$CLAUDE_CODE_SESSION_ID"`.

@@ -109,8 +109,12 @@ check_equal "GLOB reaches the server" "e1" \
     "$(ws search --subject '*stock*' --id-only)"
 check_equal "GLOB is ASCII case-insensitive" "e2" \
     "$(ws search --jira 'quack-*' --id-only)"
-check_equal "positional search escapes GLOB characters" "e3" \
-    "$(ws search '[duck]?' --id-only)"
+check_equal "positional wildcards reach the server unescaped" "e1" \
+    "$(ws search '*Stock*' --id-only)"
+check_equal "positional without wildcards still matches anywhere" "e1" \
+    "$(ws search Stock --id-only)"
+check_equal "bracket class matches a literal wildcard" "e3" \
+    "$(ws search '[?]' --id-only)"
 check_equal "metadata pair keeps key and value together" "" \
     "$(ws search --meta 'pr=QUACK-*' --id-only)"
 check_equal "negation reaches the server" "e1" \
