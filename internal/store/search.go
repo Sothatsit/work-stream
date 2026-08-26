@@ -149,13 +149,18 @@ func (builder *whereBuilder) addMetadata(conditions []MetaCond) error {
 // match any part of the text the way a search box does. Type, key,
 // origin, and metadata patterns stay whole-value matches, because they
 // name one of a known set rather than describe its contents.
+//
+// An empty pattern is left alone, so it matches only an empty value.
+// Widening it would match everything, which is what leaving the filter
+// out already does.
 func matchAnywhere(conditions []FieldCond) []FieldCond {
 	widened := make([]FieldCond, len(conditions))
 	for index, condition := range conditions {
-		widened[index] = FieldCond{
-			Negate: condition.Negate,
-			Value:  "*" + condition.Value + "*",
+		value := condition.Value
+		if value != "" {
+			value = "*" + value + "*"
 		}
+		widened[index] = FieldCond{Negate: condition.Negate, Value: value}
 	}
 	return widened
 }

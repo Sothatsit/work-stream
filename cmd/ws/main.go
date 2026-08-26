@@ -69,7 +69,8 @@ Search flags:
   --subject, --body, and --content search prose, so they match any
   part of the text: --subject duck finds 'Count the Ducklings'.
   --content searches the subject OR body, and a positional <text> is
-  the same as --content.
+  the same as --content. An empty pattern matches only an empty
+  value, so --body "" finds the entries with no body.
 
   --type, --key, --meta, and the origin filters --origin-user,
   --origin-host, --origin-dir, and --origin-claude-session name one

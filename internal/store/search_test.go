@@ -69,6 +69,7 @@ func TestSearchUsesRawCaseFoldedGlobPatterns(t *testing.T) {
 		{"bare text matches anywhere", "DUCKLINGS", []int64{
 			entries.third.ID, entries.first.ID,
 		}},
+		{"empty matches only an empty value", "", nil},
 		{"wildcard", "*DUCKLINGS*", []int64{
 			entries.third.ID, entries.first.ID,
 		}},

@@ -88,7 +88,8 @@ Every filter takes an ASCII-case-insensitive GLOB pattern.
 
 `--subject`, `--body`, and `--content` (subject or body) search prose,
 so they match any part of the value: `--subject duck` finds "Count the
-Ducklings".
+Ducklings". An empty pattern matches only an empty value, so
+`--body ""` finds the entries with no body.
 
 `--type`, `--key`, `--meta <key>=<value>`, the origin filters
 `--origin-user`, `--origin-host`, `--origin-dir`,

@@ -154,6 +154,10 @@ check "removing more keys than the pair limit is allowed" "Edited entry" \
 ws edit e1 --body "The Long Form Detail" >/dev/null
 check_equal "content searches subject or body" "e1" \
     "$(ws search --content '*long form*' --id-only)"
+check_equal "an empty pattern matches only an empty value" "" \
+    "$(ws search --subject '' --id-only)"
+check_equal "an empty body pattern finds the entries without one" "e3
+e2" "$(ws search --body '' --order-by-creation --id-only)"
 check "entry shows the body" "The Long Form Detail" "$(ws entry e1)"
 check "list hides the body" "0" \
     "$(ws search Stock | grep -c 'Long Form Detail' || true)"
