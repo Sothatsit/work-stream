@@ -18,12 +18,16 @@ purpose.
 - Fail fast. Prefer crashing over dubious recovery.
 - Build with `scripts/build.sh`. Run the unit tests with
   `go test ./...` and the integration tests with `test/e2e.sh`.
+- Follow semantic versioning for `version.Software`. A bug fix or a
+  small tweak moves the patch, most functionality changes move the
+  minor, and a big change moves the major. Never let the minor reach
+  10. Move the major instead, so 0.9.x is followed by 1.0.0.
 - Bump `version.API` whenever the wire contract changes: a route
   added or removed, a field or filter whose meaning changed, or a
   new default that changes what a request returns. Both sides
   compare it for an exact match, so a stale client stops with a
   clear message instead of a confusing 404. `version.Software`
   names the release and moves on its own, so a docs or bugfix
-  release does not force every client to be rebuilt.
+  release does not force every client to be updated.
 - Deploy `ws` and `ws-server` together after an API bump. Between
   the two, every command fails the version check.
