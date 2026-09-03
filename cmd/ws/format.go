@@ -85,6 +85,24 @@ func printEntryDetail(e api.Entry) {
 	}
 }
 
+// printEntryLines prints a listing: a date heading precedes each run
+// of entries sharing a day, so the entry lines themselves only carry
+// the time.
+func printEntryLines(entries []api.Entry, orderByCreation bool) {
+	lastDate := ""
+	for _, e := range entries {
+		date := localDate(listTime(e, orderByCreation))
+		if date != lastDate {
+			if lastDate != "" {
+				fmt.Println()
+			}
+			fmt.Println(date)
+			lastDate = date
+		}
+		printEntryLine(e, orderByCreation)
+	}
+}
+
 func printSearchResult(
 	result api.SearchResult, offset, limit int,
 	orderByCreation, idOnly bool,
@@ -104,20 +122,7 @@ func printSearchResult(
 		}
 		return
 	}
-	// A date heading precedes each run of entries sharing a day, so the
-	// entry lines themselves only carry the time.
-	lastDate := ""
-	for _, e := range result.Entries {
-		date := localDate(listTime(e, orderByCreation))
-		if date != lastDate {
-			if lastDate != "" {
-				fmt.Println()
-			}
-			fmt.Println(date)
-			lastDate = date
-		}
-		printEntryLine(e, orderByCreation)
-	}
+	printEntryLines(result.Entries, orderByCreation)
 	remaining := result.Total - offset - len(result.Entries)
 	if remaining > 0 {
 		fmt.Printf("--- %d more entries (use --offset %d to view older) ---\n",

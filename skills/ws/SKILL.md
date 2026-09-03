@@ -24,6 +24,10 @@ Adds an entry. Origin (user, host, directory, Claude session) is
 captured automatically. The subject is a headline of up to 128
 characters; longer detail goes in `--body`, up to 2048.
 
+`add`, `edit`, and `delete` end by listing the 5 most recently changed
+entries other than the one you touched, so you see what others have
+been doing. Pass `--no-recent` to leave the listing out.
+
 ### recent
 
 ```
@@ -60,6 +64,7 @@ Shows one entry in full: subject, origin, metadata, and body.
 ```
 ws edit <id> [<subject>] [--type <t>] [--subject <s>] [--body <b>]
         [--meta <key>=<value>]... [--project <p>] [--jira <k>] ...
+        [--no-recent]
 ```
 
 Changes type, subject, body, and metadata. `--body ""` clears the
@@ -71,7 +76,7 @@ changed.
 ### delete
 
 ```
-ws delete <id>
+ws delete <id> [--no-recent]
 ```
 
 ### status

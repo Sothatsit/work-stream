@@ -23,12 +23,14 @@ const usage = `ws - a shared work stream of timestamped entries
 
 Usage:
   ws add <type> <subject> [--body <b>] [--meta <key>=<value>]... [shorthands]
+         [--no-recent]
   ws recent [search flags]
   ws search [<text>] [search flags]
   ws entry <id>
   ws edit <id> [<subject>] [--type <t>] [--subject <s>] [--body <b>]
           [--meta <key>=<value>]... [--project <p>] [--jira <k>] ...
-  ws delete <id>
+          [--no-recent]
+  ws delete <id> [--no-recent]
   ws status
   ws secret
   ws --version
@@ -90,6 +92,11 @@ Search flags:
 'ws recent' is 'ws search' with no filters: the 20 most recently
 changed entries. Editing an entry lifts it back to the top, so a fact
 you correct resurfaces instead of staying buried under newer entries.
+
+After a change:
+  'ws add', 'ws edit', and 'ws delete' end by listing the 5 most
+  recently changed entries other than the one you touched, so you see
+  what others have been doing. --no-recent leaves the listing out.
 
 Editing:
   'ws edit' changes type, subject, body, and metadata. --body ""
@@ -211,9 +218,45 @@ func main() {
 	}
 }
 
+const recentAfterChangeCount = 5
+
+// printRecentAfterChange lists the most recently changed entries other
+// than the one just added, edited, or deleted. Its id is dropped after
+// the fetch rather than skipped by offset, because another agent's
+// write can land between the change and the listing and take the top
+// slot.
+func printRecentAfterChange(c *client, changedID int64) error {
+	params := url.Values{}
+	params.Set("limit", fmt.Sprint(recentAfterChangeCount+1))
+	result, err := c.search(params)
+	if err != nil {
+		return err
+	}
+
+	var others []api.Entry
+	for _, e := range result.Entries {
+		if e.ID == changedID {
+			continue
+		}
+		if len(others) == recentAfterChangeCount {
+			break
+		}
+		others = append(others, e)
+	}
+	if len(others) == 0 {
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Println("Other recent entries:")
+	printEntryLines(others, false)
+	return nil
+}
+
 func cmdAdd(c *client, args []string) {
 	spec := flagSpec{
 		strs:   []string{"--body"},
+		bools:  []string{"--no-recent"},
 		repeat: append([]string{"--meta"}, shorthandFlags()...),
 	}
 	p, err := parseArgs(args, spec)
@@ -222,7 +265,8 @@ func cmdAdd(c *client, args []string) {
 	}
 	if len(p.pos) != 2 {
 		failf("usage: ws add <type> <subject> [--body <b>] " +
-			"[--meta <key>=<value>]... [--project <p>] [--jira <k>] ...")
+			"[--meta <key>=<value>]... [--project <p>] [--jira <k>] ... " +
+			"[--no-recent]")
 	}
 	metadata := collectMetadata(p)
 	origin, err := captureOrigin()
@@ -244,6 +288,14 @@ func cmdAdd(c *client, args []string) {
 		fail(err)
 	}
 	fmt.Printf("Added entry [e%d].\n", entry.ID)
+
+	if p.bools["--no-recent"] {
+		return
+	}
+	if err := printRecentAfterChange(c, entry.ID); err != nil {
+		failf("the entry was added, but listing recent entries "+
+			"failed: %w", err)
+	}
 }
 
 // collectMetadata gathers the pairs given by --meta and the shorthand
@@ -397,6 +449,7 @@ func cmdEntry(c *client, args []string) {
 func cmdEdit(c *client, args []string) {
 	spec := flagSpec{
 		strs:   []string{"--type", "--subject", "--body"},
+		bools:  []string{"--no-recent"},
 		repeat: append([]string{"--meta"}, shorthandFlags()...),
 	}
 	p, err := parseArgs(args, spec)
@@ -406,7 +459,7 @@ func cmdEdit(c *client, args []string) {
 	if len(p.pos) < 1 || len(p.pos) > 2 {
 		failf("usage: ws edit <id> [<subject>] [--type <t>] " +
 			"[--subject <s>] [--body <b>] [--meta <key>=<value>]... " +
-			"[--project <p>] [--jira <k>] ...")
+			"[--project <p>] [--jira <k>] ... [--no-recent]")
 	}
 	id, err := parseEntryID(p.pos[0])
 	if err != nil {
@@ -442,13 +495,25 @@ func cmdEdit(c *client, args []string) {
 		fail(err)
 	}
 	fmt.Printf("Edited entry [e%d].\n", entry.ID)
+
+	if p.bools["--no-recent"] {
+		return
+	}
+	if err := printRecentAfterChange(c, entry.ID); err != nil {
+		failf("the entry was edited, but listing recent entries "+
+			"failed: %w", err)
+	}
 }
 
 func cmdDelete(c *client, args []string) {
-	if len(args) != 1 {
-		failf("usage: ws delete <id>")
+	p, err := parseArgs(args, flagSpec{bools: []string{"--no-recent"}})
+	if err != nil {
+		fail(err)
 	}
-	id, err := parseEntryID(args[0])
+	if len(p.pos) != 1 {
+		failf("usage: ws delete <id> [--no-recent]")
+	}
+	id, err := parseEntryID(p.pos[0])
 	if err != nil {
 		fail(err)
 	}
@@ -456,6 +521,14 @@ func cmdDelete(c *client, args []string) {
 		fail(err)
 	}
 	fmt.Printf("Deleted entry [e%d].\n", id)
+
+	if p.bools["--no-recent"] {
+		return
+	}
+	if err := printRecentAfterChange(c, id); err != nil {
+		failf("the entry was deleted, but listing recent entries "+
+			"failed: %w", err)
+	}
 }
 
 func cmdStatus(c *client, args []string) {

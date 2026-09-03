@@ -176,6 +176,27 @@ check "entry shows the body" "The Long Form Detail" "$(ws entry e1)"
 check "list hides the body" "0" \
     "$(ws search Stock | grep -c 'Long Form Detail' || true)"
 
+# Three entries exist here, so a change lists the other two.
+check_equal "--no-recent prints only the outcome" "Added entry [e4]." \
+    "$(ws add note "Fourth duck" --no-recent)"
+after_add="$(ws add note "Fifth duck")"
+check "a change lists the other recent entries" "Other recent entries:" \
+    "$after_add"
+check_equal "the listing leaves out the changed entry" "e4
+e1
+e3
+e2" "$(echo "$after_add" | sed -n 's/^\[\(e[0-9]*\)\].*/\1/p')"
+for index in $(seq 6 9); do
+    ws add note "Duck $index" --no-recent >/dev/null
+done
+check_equal "the listing stops at five" "5" \
+    "$(ws edit e1 --type note | grep -c '^\[e' || true)"
+check_equal "delete lists the other recent entries" "e1
+e9
+e8
+e7
+e6" "$(ws delete e5 | sed -n 's/^\[\(e[0-9]*\)\].*/\1/p')"
+
 echo
 if [[ "$failures" -gt 0 ]]; then
     echo "$failures FAILURES"
